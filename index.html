@@ -34,12 +34,10 @@ tailwind.config = {
 </head>
 <body class="h-full bg-bg text-tx font-sans antialiased selection:bg-accent/30 selection:text-white">
 
-<!-- Модальное окно для просмотра аватарки -->
 <div id="image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" onclick="this.classList.add('hidden'); this.classList.remove('flex');">
     <img id="modal-img" src="" class="max-w-full max-h-[90vh] rounded-lg object-contain shadow-2xl" onclick="event.stopPropagation()">
 </div>
 
-<!-- Экран Авторизации -->
 <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4 hidden">
     <div class="w-full max-w-[360px]">
         <h2 id="auth-title" class="mb-6 text-xl font-semibold text-center">Вход в систему</h2>
@@ -56,14 +54,10 @@ tailwind.config = {
     </div>
 </div>
 
-<!-- Основной Дашборд -->
 <div id="app-screen" class="hidden h-full flex flex-col">
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ (Поиск и Добавление) -->
     <nav class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-4 sm:px-6">
         <div class="flex items-center gap-4 flex-1">
             <span class="text-sm font-bold tracking-widest text-tx uppercase shrink-0">XIVIVIDE</span>
-            
-            <!-- Поле добавления цели -->
             <div class="flex items-center gap-2 w-full max-w-md ml-4">
                 <div class="relative w-full">
                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -71,7 +65,7 @@ tailwind.config = {
                     </div>
                     <input type="text" id="new-target-id" placeholder="Введите Discord ID" class="h-9 w-full rounded-md border border-line bg-panel pl-9 pr-3 text-sm text-tx outline-none focus:border-accent">
                 </div>
-                <button id="add-target-btn" class="h-9 shrink-0 rounded-md bg-accent px-4 text-sm font-medium text-white hover:bg-accentHover transition">Добавить в отслеживание</button>
+                <button id="add-target-btn" class="h-9 shrink-0 rounded-md bg-accent px-4 text-sm font-medium text-white hover:bg-accentHover transition">Добавить</button>
             </div>
         </div>
         
@@ -88,8 +82,6 @@ tailwind.config = {
     </nav>
 
     <div class="mx-auto flex w-full max-w-[1300px] flex-1 items-start gap-6 p-4 sm:p-6 lg:flex-row flex-col">
-        
-        <!-- Сайдбар -->
         <aside class="flex w-full flex-col gap-4 lg:sticky lg:top-[80px] lg:w-[240px] shrink-0">
             <nav class="flex flex-col gap-1">
                 <a href="#feed" class="flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors" id="nav-feed">
@@ -108,7 +100,6 @@ tailwind.config = {
             </div>
         </aside>
 
-        <!-- Основной контент -->
         <main class="min-w-0 flex-1">
             <div id="loader" class="flex h-[400px] flex-col items-center justify-center gap-3 text-mut">
                 <svg class="h-6 w-6 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -224,7 +215,6 @@ async function loadTargets() {
     try {
         const res = await fetch(`/api/my_targets/${USER_ID}`);
         userTargets = await res.json();
-        
         const hash = location.hash.slice(1) || 'feed';
         if (['profile', 'servers', 'nicks', 'media', 'friends', 'events'].includes(hash)) {
             if (!CURRENT_TARGET && userTargets.length > 0) {
@@ -298,7 +288,6 @@ function render() {
         }
     }
 
-    // Подсветка главных вкладок
     document.getElementById('nav-feed').className = `flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors ${hash === 'feed' ? 'bg-[#1e1f22] text-tx' : 'text-mut hover:bg-[#1e1f22]/50 hover:text-tx'}`;
     document.getElementById('nav-tracking').className = `flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors ${hash === 'tracking' ? 'bg-[#1e1f22] text-tx' : 'text-mut hover:bg-[#1e1f22]/50 hover:text-tx'}`;
 
@@ -337,7 +326,6 @@ function render() {
     content.innerHTML = renderSubTab(hash, targetData);
 }
 
-// --- ЛЕНТА ---
 function renderFeed() {
     const rawFeed = DATA.global_feed || [];
     const uniqueFeed = [];
@@ -368,7 +356,6 @@ function renderFeed() {
     </div>`;
 }
 
-// --- СПИСОК ОТСЛЕЖИВАНИЯ ---
 function renderTrackingList() {
     if (userTargets.length === 0) return renderEmpty('Вы пока никого не отслеживаете.');
     return `<div class="flex flex-col gap-2">
@@ -400,7 +387,6 @@ function renderTrackingList() {
     </div>`;
 }
 
-// --- ВКЛАДКИ ЦЕЛИ ---
 function renderSubTab(tabId, data) {
     switch (tabId) {
         case 'profile': return renderProfile(data);
@@ -462,18 +448,27 @@ function renderProfile(data) {
     </div>`;
 }
 
+// ОБНОВЛЕННЫЙ РЕНДЕР СЕРВЕРОВ (Иконки больше и с картинками)
 function renderServers(data) {
     const servers = data.servers || [];
     if (servers.length === 0) return renderEmpty('Нет общих серверов');
     return `<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        ${servers.map(s => `
-        <div class="flex items-center gap-3 rounded-xl bg-[#1e1f22] p-3">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-line font-bold text-sm text-tx">${s.n.charAt(0).toUpperCase()}</div>
-            <div class="min-w-0">
-                <h4 class="truncate text-sm font-semibold text-tx">${s.n}</h4>
-                <div class="text-xs text-mut mt-0.5">Участников: ${s.m.toLocaleString('ru-RU')} · В голосе: ${s.v}</div>
-            </div>
-        </div>`).join('')}
+        ${servers.map(s => {
+            const serverIcon = s.icon 
+                ? `<img src="${s.icon}" class="h-full w-full object-cover" onerror="this.src='${avatarPlaceholder(s.n)}'">` 
+                : `<div class="flex h-full w-full items-center justify-center font-bold text-lg text-tx">${s.n.charAt(0).toUpperCase()}</div>`;
+
+            return `
+            <div class="flex items-center gap-4 rounded-xl bg-[#1e1f22] p-3.5 hover:bg-[#25262b] transition-colors">
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-line overflow-hidden border border-line/50">
+                    ${serverIcon}
+                </div>
+                <div class="min-w-0">
+                    <h4 class="truncate text-sm font-semibold text-tx">${s.n}</h4>
+                    <div class="text-xs text-mut mt-1">Участников: ${s.m.toLocaleString('ru-RU')} · В голосе: ${s.v}</div>
+                </div>
+            </div>`;
+        }).join('')}
     </div>`;
 }
 
@@ -490,10 +485,11 @@ function renderNicks(data) {
     </div>`;
 }
 
+// ОБНОВЛЕННЫЙ РЕНДЕР МЕДИА (Картинки крупнее)
 function renderMedia(data) {
     const media = data.media || [];
     if (media.length === 0) return renderEmpty('Нет аватарок');
-    return `<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+    return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         ${media.map(m => {
             const isUrl = m.s && m.s.startsWith('http');
             return `<div class="aspect-square overflow-hidden rounded-xl border border-line bg-panel cursor-pointer hover:border-accent/40 transition-colors" onclick="openModal('${isUrl ? m.s : ''}')">
