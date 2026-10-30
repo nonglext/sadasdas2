@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#09090b">
 <title>XIVIVIDE Monitor</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script>
@@ -11,153 +10,108 @@ tailwind.config = {
     theme: {
         extend: {
             colors: {
-                bg: '#09090b',
-                panel: '#121215',
-                card: '#18181b',
-                line: '#27272a',
-                tx: '#f4f4f5',
-                mut: '#a1a1aa',
-                accent: '#6366f1',
-                accentHover: '#4f46e5',
-                danger: '#ef4444',
-                success: '#10b981'
+                bg: '#09090b', panel: '#121215', card: '#18181b',
+                line: '#27272a', tx: '#f4f4f5', mut: '#a1a1aa',
+                accent: '#6366f1', danger: '#ef4444', success: '#10b981'
             },
             fontFamily: {
-                sans: ['"Geist"', '"Inter"', 'system-ui', 'sans-serif'],
-                mono: ['"Geist Mono"', '"JetBrains Mono"', 'monospace']
+                sans: ['"Inter"', 'system-ui', 'sans-serif'],
+                mono: ['"JetBrains Mono"', 'monospace']
             }
         }
     }
 }
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
     :root { color-scheme: dark; }
-    *:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 4px; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
-    .fade-in { animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-    .skeleton { background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite linear; }
-    @keyframes shimmer { to { background-position: -200% 0; } }
+    .fade-in { animation: fadeIn 0.15s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
 </head>
 <body class="h-full bg-bg text-tx font-sans antialiased selection:bg-accent/30 selection:text-white">
 
 <!-- Экран Авторизации -->
-<div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-bg/95 backdrop-blur-sm p-4" role="dialog" aria-modal="true">
-    <div class="w-full max-w-[400px] rounded-2xl border border-line bg-panel p-8 shadow-2xl fade-in">
-        <div class="mb-8 flex flex-col items-center">
-            <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10 border border-accent/20">
-                <svg class="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-            </div>
-            <h2 id="auth-title" class="text-xl font-semibold tracking-tight">Доступ к мониторингу</h2>
-            <p class="mt-1 text-sm text-mut">Введите данные для входа в систему</p>
-        </div>
-
-        <form id="auth-form" class="flex flex-col gap-4">
-            <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-medium text-mut ml-1">Логин</label>
-                <input type="text" id="auth-user" autocomplete="username" placeholder="admin" class="h-10 w-full rounded-lg border border-line bg-bg px-3 text-sm text-tx placeholder:text-zinc-600 focus:border-accent/60 transition-colors" required>
-            </div>
-            <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-medium text-mut ml-1">Пароль</label>
-                <input type="password" id="auth-pass" autocomplete="current-password" placeholder="••••••••" class="h-10 w-full rounded-lg border border-line bg-bg px-3 text-sm text-tx placeholder:text-zinc-600 focus:border-accent/60 transition-colors" required>
-            </div>
-            <div id="confirm-wrapper" class="flex flex-col gap-1.5 hidden">
-                <label class="text-xs font-medium text-mut ml-1">Повторите пароль</label>
-                <input type="password" id="auth-confirm" autocomplete="new-password" placeholder="••••••••" class="h-10 w-full rounded-lg border border-line bg-bg px-3 text-sm text-tx placeholder:text-zinc-600 focus:border-accent/60 transition-colors">
-            </div>
-            <button type="submit" id="auth-btn" class="mt-2 flex h-10 w-full items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-white transition-all hover:bg-accentHover active:scale-[0.98]">Войти в систему</button>
+<div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4 hidden">
+    <div class="w-full max-w-[360px]">
+        <h2 id="auth-title" class="mb-6 text-xl font-semibold text-center">Вход в систему</h2>
+        <form id="auth-form" class="flex flex-col gap-3">
+            <input type="text" id="auth-user" placeholder="Логин" class="h-10 w-full rounded-md border border-line bg-panel px-3 text-sm text-tx outline-none focus:border-accent" required>
+            <input type="password" id="auth-pass" placeholder="Пароль" class="h-10 w-full rounded-md border border-line bg-panel px-3 text-sm text-tx outline-none focus:border-accent" required>
+            <input type="password" id="auth-confirm" placeholder="Повторите пароль" class="h-10 w-full rounded-md border border-line bg-panel px-3 text-sm text-tx outline-none focus:border-accent hidden" required>
+            <button type="submit" id="auth-btn" class="mt-2 flex h-10 w-full items-center justify-center rounded-md bg-tx text-black font-semibold hover:bg-zinc-300 transition-colors">Войти</button>
         </form>
-
-        <div class="mt-6 text-center text-xs text-mut">
+        <div class="mt-4 text-center text-xs text-mut">
             <span id="auth-switch-text">Нет аккаунта?</span>
-            <button type="button" id="auth-switch" class="ml-1 font-medium text-accent hover:text-accentHover transition-colors focus:underline">Создать аккаунт</button>
+            <button type="button" id="auth-switch" class="ml-1 font-medium text-accent hover:underline">Создать</button>
         </div>
     </div>
 </div>
 
 <!-- Основной Дашборд -->
 <div id="app-screen" class="hidden h-full flex flex-col">
-    <nav class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg/80 px-4 backdrop-blur-md sm:px-6">
-        <div class="flex items-center gap-3">
-            <div class="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white shadow-sm">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            </div>
-            <span class="text-sm font-bold tracking-wide text-tx">XIVIVIDE MONITOR</span>
-            <span class="rounded-full bg-line px-2 py-0.5 text-[10px] font-medium text-mut">v2.4</span>
+    <nav class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-4 sm:px-6">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-bold tracking-widest text-tx uppercase">XIVIVIDE</span>
         </div>
-        <div class="flex items-center gap-4">
-            <div class="hidden items-center gap-2 sm:flex">
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
                 <span class="relative flex h-2 w-2">
                     <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75"></span>
                     <span class="relative inline-flex h-2 w-2 rounded-full bg-success"></span>
                 </span>
-                <span class="text-xs text-mut">API Connected</span>
+                <span id="current-user-display" class="text-xs font-medium text-mut"></span>
             </div>
-            <div class="h-5 w-px bg-line"></div>
-            <div class="flex items-center gap-3">
-                <span id="current-user-display" class="text-sm font-medium text-tx"></span>
-                <button id="logout-btn" class="group flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-xs font-medium text-mut transition-colors hover:border-danger/30 hover:bg-danger/10 hover:text-danger">
-                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                    Выйти
-                </button>
-            </div>
+            <button id="logout-btn" class="text-xs font-medium text-mut hover:text-tx transition-colors">Выйти</button>
         </div>
     </nav>
 
-    <div class="mx-auto flex w-full max-w-[1400px] flex-1 items-start gap-6 p-4 sm:p-6 lg:flex-row flex-col">
+    <div class="mx-auto flex w-full max-w-[1300px] flex-1 items-start gap-6 p-4 sm:p-6 lg:flex-row flex-col">
+        
         <!-- Сайдбар -->
-        <aside class="flex w-full flex-col gap-4 lg:sticky lg:top-[80px] lg:w-[280px] shrink-0">
+        <aside class="flex w-full flex-col gap-6 lg:sticky lg:top-[80px] lg:w-[260px] shrink-0">
             
-            <!-- Добавление цели -->
-            <div class="rounded-xl border border-line bg-panel p-3 shadow-sm">
-                <h3 class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-mut">
-                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    Новая цель
-                </h3>
-                <div class="flex flex-col gap-2">
-                    <input type="text" id="new-target-id" placeholder="Discord ID" class="h-9 w-full rounded-md border border-line bg-bg px-2.5 text-xs text-tx placeholder:text-zinc-600 focus:border-accent/60 transition-colors">
-                    <input type="text" id="new-target-name" placeholder="Отображаемое имя" class="h-9 w-full rounded-md border border-line bg-bg px-2.5 text-xs text-tx placeholder:text-zinc-600 focus:border-accent/60 transition-colors">
-                    <button id="add-target-btn" class="mt-1 flex h-9 w-full items-center justify-center rounded-md bg-white px-3 text-xs font-semibold text-black transition-all hover:bg-zinc-200 active:scale-[0.98]">Отслеживать</button>
+            <!-- Добавление цели (Одной строкой) -->
+            <div>
+                <h3 class="mb-2 text-xs font-semibold text-mut uppercase tracking-wider">Добавить цель</h3>
+                <div class="relative flex items-center">
+                    <input type="text" id="new-target-id" placeholder="Вставьте Discord ID" class="h-9 w-full rounded-md border border-line bg-panel pl-3 pr-16 text-xs text-tx outline-none focus:border-accent font-mono">
+                    <button id="add-target-btn" class="absolute right-1 top-1 bottom-1 rounded bg-tx px-3 text-[11px] font-semibold text-black hover:bg-zinc-300 transition">Add</button>
                 </div>
-                <p class="mt-2 text-[10px] leading-tight text-zinc-500">Бот начнет слежку в течение 60 секунд.</p>
             </div>
 
             <!-- Список целей -->
-            <div class="flex flex-col rounded-xl border border-line bg-panel p-2 shadow-sm">
-                <div class="mb-1 flex items-center justify-between px-1">
-                    <h3 class="text-xs font-semibold uppercase tracking-wider text-mut">Активные цели</h3>
-                    <span id="target-count" class="rounded bg-line px-1.5 py-0.5 text-[10px] font-mono text-mut">0</span>
+            <div class="flex flex-col">
+                <div class="mb-2 flex items-center justify-between">
+                    <h3 class="text-xs font-semibold text-mut uppercase tracking-wider">Активные</h3>
+                    <span id="target-count" class="text-xs font-mono text-mut"></span>
                 </div>
                 <div id="target-list" class="flex max-h-[300px] flex-col gap-0.5 overflow-y-auto pr-1"></div>
             </div>
 
-            <!-- Навигация -->
-            <nav class="flex flex-row gap-1 overflow-x-auto pb-1 lg:flex-col lg:pb-0">
-                <div id="menu" class="flex flex-row gap-1 lg:flex-col w-full"></div>
-            </nav>
+            <!-- Навигация по вкладкам -->
+            <nav class="flex flex-col gap-0.5 border-t border-line pt-4" id="menu"></nav>
 
         </aside>
 
         <!-- Основной контент -->
-        <main id="view" class="min-w-0 flex-1">
-            <div id="loader" class="flex h-[400px] flex-col items-center justify-center gap-4">
-                <svg class="h-8 w-8 animate-spin text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span class="text-sm text-mut">Загрузка профиля...</span>
+        <main class="min-w-0 flex-1">
+            <!-- Состояние загрузки -->
+            <div id="loader" class="flex h-[400px] flex-col items-center justify-center gap-3 text-mut">
+                <svg class="h-6 w-6 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span class="text-sm">Загрузка...</span>
             </div>
-            <div id="empty-state" class="hidden flex-col items-center justify-center rounded-xl border border-dashed border-line bg-panel/50 p-12 text-center h-[400px]">
-                <div class="mb-4 rounded-full bg-line p-4">
-                    <svg class="h-8 w-8 text-mut" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                </div>
-                <h3 class="text-lg font-semibold text-tx">Нет выбранной цели</h3>
-                <p class="mt-1 max-w-xs text-sm text-mut">Добавьте Discord ID в панели слева, чтобы начать отслеживание.</p>
+            
+            <!-- Пустое состояние -->
+            <div id="empty-state" class="hidden h-[400px] flex-col items-center justify-center border border-dashed border-line rounded-xl bg-panel/30">
+                <p class="text-sm text-mut">Выберите цель слева</p>
             </div>
+
+            <!-- Контент вкладок -->
+            <div id="content" class="fade-in"></div>
         </main>
     </div>
 </div>
@@ -173,61 +127,46 @@ const ICONS = {
     cal: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>',
     mic: '<path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>',
     id: '<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>',
-    clock: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
-    eye: '<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>'
+    clock: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>'
 };
-
-const icon = (name, cls = "h-4 w-4") => `<svg class="${cls}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">${ICONS[name] || ''}</svg>`;
-
+const icon = (name, cls = "h-4 w-4") => `<svg class="${cls}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">${ICONS[name] || ''}</svg>`;
 const avatarPlaceholder = (str) => {
     const safeStr = str || '?';
     let hash = 0;
     for (let i = 0; i < safeStr.length; i++) hash = safeStr.charCodeAt(i) + ((hash << 5) - hash);
     const hue = Math.abs(hash) % 360;
-    const letter = safeStr.charAt(0).toUpperCase();
-    return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="hsl(${hue},30%,15%)"/><text x="32" y="45" font-size="32" font-family="sans-serif" font-weight="600" text-anchor="middle" fill="hsl(${hue},70%,70%)">${letter}</text></svg>`)}`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="hsl(${hue},30%,15%)"/><text x="32" y="45" font-size="32" font-family="sans-serif" font-weight="600" text-anchor="middle" fill="hsl(${hue},70%,70%)">${safeStr.charAt(0).toUpperCase()}</text></svg>`)}`;
 };
 
-// ИСПРАВЛЕНО: Безопасный парсер дат (чтобы не было NaN)
+// ИСПРАВЛЕНИЕ ДАТЫ (чтобы не было NaN)
 const formatDate = (isoStr) => {
     if (!isoStr || isoStr === 'unknown') return 'Неизвестно';
-    // Если бот уже прислал красивую строку (типа "15.10.2024, 12:00:00"), просто отдаем её
     if (/^\d{2}\.\d{2}\.\d{4}/.test(isoStr)) return isoStr;
-    
     const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return isoStr; // Защита от кривых дат
-    
+    if (isNaN(d.getTime())) return isoStr;
     const p = (n) => String(n).padStart(2, '0');
     return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
-
 const formatMinutes = (min) => {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    if (h > 0) return `${h}ч ${m}м`;
-    return `${m}м`;
+    const h = Math.floor(min / 60), m = min % 60;
+    return h > 0 ? `${h}ч ${m}м` : `${m}м`;
 };
 
 // ============ СОСТОЯНИЕ ============
-let DATA = {};
-let CURRENT_TARGET = null;
-let USER_ID = null;
-let userTargets = [];
-let isRegistering = false;
+let DATA = {}, CURRENT_TARGET = null, USER_ID = null, userTargets = [], isRegistering = false;
 
 // ============ АВТОРИЗАЦИЯ ============
 const authScreen = document.getElementById('auth-screen');
 const appScreen = document.getElementById('app-screen');
 const authForm = document.getElementById('auth-form');
-const confirmWrapper = document.getElementById('confirm-wrapper');
 
 document.getElementById('auth-switch').addEventListener('click', () => {
     isRegistering = !isRegistering;
-    document.getElementById('auth-title').textContent = isRegistering ? 'Создание аккаунта' : 'Доступ к мониторингу';
-    document.getElementById('auth-btn').textContent = isRegistering ? 'Зарегистрироваться' : 'Войти в систему';
-    document.getElementById('auth-switch-text').textContent = isRegistering ? 'Уже есть доступ?' : 'Нет аккаунта?';
-    document.getElementById('auth-switch').textContent = isRegistering ? 'Войти' : 'Создать аккаунт';
-    confirmWrapper.classList.toggle('hidden', !isRegistering);
+    document.getElementById('auth-title').textContent = isRegistering ? 'Регистрация' : 'Вход в систему';
+    document.getElementById('auth-btn').textContent = isRegistering ? 'Создать' : 'Войти';
+    document.getElementById('auth-switch-text').textContent = isRegistering ? 'Есть аккаунт?' : 'Нет аккаунта?';
+    document.getElementById('auth-switch').textContent = isRegistering ? 'Войти' : 'Создать';
+    document.getElementById('auth-confirm').classList.toggle('hidden', !isRegistering);
     document.getElementById('auth-confirm').required = isRegistering;
 });
 
@@ -236,40 +175,28 @@ authForm.addEventListener('submit', async (e) => {
     const u = document.getElementById('auth-user').value.trim();
     const p = document.getElementById('auth-pass').value;
     const c = document.getElementById('auth-confirm').value;
-
     if (isRegistering && p !== c) return alert("Пароли не совпадают!");
 
-    const url = isRegistering ? '/api/register' : '/api/login';
     const btn = document.getElementById('auth-btn');
-    btn.disabled = true;
-    btn.innerHTML = `<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+    btn.disabled = true; btn.textContent = '...';
 
     try {
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+        const res = await fetch(isRegistering ? '/api/register' : '/api/login', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ username: u, password: p })
         });
         const data = await res.json();
-
         if (res.ok) {
             localStorage.setItem('user_id', data.user_id);
             localStorage.setItem('username', data.username);
             checkAuth();
-        } else {
-            alert(data.detail || "Ошибка авторизации");
-        }
-    } catch (e) {
-        alert("Сервер недоступен");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = isRegistering ? 'Зарегистрироваться' : 'Войти в систему';
-    }
+        } else alert(data.detail || "Ошибка");
+    } catch (e) { alert("Сервер недоступен"); }
+    finally { btn.disabled = false; btn.textContent = isRegistering ? 'Создать' : 'Войти'; }
 });
 
 document.getElementById('logout-btn').addEventListener('click', () => {
-    localStorage.clear();
-    checkAuth();
+    localStorage.clear(); checkAuth();
 });
 
 function checkAuth() {
@@ -280,7 +207,7 @@ function checkAuth() {
         appScreen.classList.remove('hidden');
         loadTargets();
         loadData();
-        setInterval(loadData, 10000); // Автообновление раз в 10 сек
+        setInterval(loadData, 10000);
     } else {
         authScreen.classList.remove('hidden');
         appScreen.classList.add('hidden');
@@ -299,25 +226,23 @@ async function loadTargets() {
 
 function renderTargetList() {
     const list = document.getElementById('target-list');
-    const counter = document.getElementById('target-count');
-    counter.textContent = userTargets.length;
+    document.getElementById('target-count').textContent = userTargets.length || '';
 
     if (userTargets.length === 0) {
-        list.innerHTML = `<div class="py-4 text-center text-xs text-zinc-500">Список пуст</div>`;
+        list.innerHTML = `<div class="text-xs text-mut py-2">Нет целей</div>`;
         return;
     }
 
     list.innerHTML = userTargets.map(t => {
         const isSelected = CURRENT_TARGET === t.target_id;
+        // Если бот уже прислал имя, используем его, иначе показываем ID
+        const displayName = DATA.targets?.[t.target_id]?.user?.display || t.target_name || t.target_id;
+        
         return `
-        <div class="group flex cursor-pointer items-center justify-between rounded-md border px-2.5 py-2 transition-all ${isSelected ? 'border-accent/40 bg-accent/10' : 'border-transparent hover:bg-line/50'}" onclick="selectTarget('${t.target_id}')">
-            <div class="flex flex-col min-w-0">
-                <span class="truncate text-sm font-medium ${isSelected ? 'text-white' : 'text-tx'}">${t.target_name}</span>
-                <span class="truncate font-mono text-[10px] text-mut">${t.target_id}</span>
-            </div>
-            <button class="flex h-6 w-6 items-center justify-center rounded text-mut opacity-0 transition-opacity hover:bg-danger/20 hover:text-danger group-hover:opacity-100" 
-                    onclick="event.stopPropagation(); removeTarget('${t.target_id}')" aria-label="Удалить цель">
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        <div class="group flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors ${isSelected ? 'bg-line' : 'hover:bg-line/50'}" onclick="selectTarget('${t.target_id}')">
+            <span class="truncate text-sm ${isSelected ? 'text-tx font-medium' : 'text-mut'}">${displayName}</span>
+            <button class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-mut opacity-0 hover:bg-danger/20 hover:text-danger group-hover:opacity-100" onclick="event.stopPropagation(); removeTarget('${t.target_id}')">
+                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>`;
     }).join('');
@@ -330,44 +255,37 @@ function selectTarget(id) {
 }
 
 document.getElementById('add-target-btn').addEventListener('click', async () => {
-    const tidInput = document.getElementById('new-target-id');
-    const tnameInput = document.getElementById('new-target-name');
-    const tid = tidInput.value.trim();
-    const tname = tnameInput.value.trim() || tid;
+    const input = document.getElementById('new-target-id');
+    const tid = input.value.trim();
 
     if (!tid || !/^\d{17,20}$/.test(tid)) {
-        tidInput.classList.add('border-danger/50');
-        return alert("Введите корректный Discord ID (17-20 цифр)");
+        input.classList.add('border-danger');
+        return setTimeout(() => input.classList.remove('border-danger'), 1000);
     }
-    tidInput.classList.remove('border-danger/50');
 
     try {
         const res = await fetch(`/api/add_target/${USER_ID}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ target_id: tid, target_name: tname })
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ target_id: tid, target_name: tid }) // Передаем ID как временное имя
         });
         if (res.ok) {
-            tidInput.value = '';
-            tnameInput.value = '';
+            input.value = '';
             await loadTargets();
             selectTarget(tid);
         } else {
             const err = await res.json();
             alert(err.detail);
         }
-    } catch (e) {
-        alert("Ошибка сервера");
-    }
+    } catch (e) { alert("Ошибка сервера"); }
 });
 
 window.removeTarget = async (tid) => {
-    if (!confirm("Удалить эту цель из мониторинга?")) return;
+    if (!confirm("Удалить цель?")) return;
     try {
         await fetch(`/api/remove_target/${USER_ID}/${tid}`, { method: 'DELETE' });
         if (CURRENT_TARGET === tid) CURRENT_TARGET = null;
         await loadTargets();
-        if (userTargets.length > 0) selectTarget(userTargets[0].target_id);
+        if (userTargets.length > 0 && !CURRENT_TARGET) selectTarget(userTargets[0].target_id);
         else render();
     } catch (e) {}
 };
@@ -386,40 +304,38 @@ function render() {
     const hash = (location.hash.slice(1) || 'profile');
     const activeTab = TABS.find(t => t.id === hash) ? hash : 'profile';
 
+    // Обновляем меню
     document.getElementById('menu').innerHTML = TABS.map(t => {
         const isActive = t.id === activeTab;
-        return `<a href="#${t.id}" class="group flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors ${isActive ? 'bg-accent/10 text-accent' : 'text-mut hover:bg-line/50 hover:text-tx'}">
-            ${icon(t.icon, `h-4 w-4 ${isActive ? 'text-accent' : 'text-mut group-hover:text-tx'}`)}
-            ${t.label}
+        return `<a href="#${t.id}" class="flex h-8 items-center gap-2.5 rounded px-2 text-sm transition-colors ${isActive ? 'text-tx font-medium bg-line/30' : 'text-mut hover:text-tx hover:bg-line/30'}">
+            ${icon(t.icon, `h-3.5 w-3.5 ${isActive ? 'text-accent' : 'text-mut'}`)} ${t.label}
         </a>`;
     }).join('');
 
-    const view = document.getElementById('view');
     const loader = document.getElementById('loader');
     const emptyState = document.getElementById('empty-state');
+    const content = document.getElementById('content');
 
     if (!CURRENT_TARGET) {
-        loader.classList.add('hidden');
-        view.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        emptyState.classList.add('flex');
+        loader.style.display = 'none';
+        emptyState.style.display = 'flex';
+        content.innerHTML = '';
         return;
     }
 
-    emptyState.classList.add('hidden');
-    emptyState.classList.remove('flex');
-    loader.classList.add('hidden');
+    emptyState.style.display = 'none';
+    loader.style.display = 'none';
 
     const targetData = DATA.targets?.[CURRENT_TARGET];
     if (!targetData) {
-        view.innerHTML = `<div class="flex h-[400px] flex-col items-center justify-center text-mut">
-            <svg class="mb-3 h-8 w-8 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-            <p>Ожидание данных от локального бота...</p>
+        content.innerHTML = `<div class="flex h-[400px] flex-col items-center justify-center text-mut">
+            <svg class="mb-3 h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <p class="text-sm">Ожидание данных...</p>
         </div>`;
         return;
     }
 
-    view.innerHTML = `<div class="fade-in">${renderTab(activeTab, targetData)}</div>`;
+    content.innerHTML = renderTab(activeTab, targetData);
 }
 
 function renderTab(tabId, data) {
@@ -437,6 +353,7 @@ function renderTab(tabId, data) {
 function renderProfile(data) {
     const u = data.user;
     const l = data.lastVoice || { server: '-', channel: '-', left: '-' };
+    const isNoVoice = l.server === '-' || !l.server;
 
     const row = (iconName, label, value) => `
         <div class="flex flex-col gap-1 border-b border-line/50 py-3 sm:flex-row sm:items-center">
@@ -446,49 +363,37 @@ function renderProfile(data) {
             <span class="break-all text-sm font-medium text-tx">${value}</span>
         </div>`;
 
-    // ИСПРАВЛЕНО: Красивое отображение пустой голосовой сессии
-    const isNoVoice = l.server === '-' || !l.server;
-    const voiceServer = isNoVoice ? 'Нет данных' : l.server;
-    const voiceChannel = isNoVoice ? '' : `<span class="text-zinc-600">/</span><span class="text-zinc-300">${l.channel}</span>`;
-    const lastEvent = isNoVoice ? '—' : l.left;
-
     return `
     <div class="grid gap-4 lg:grid-cols-3">
-        <div class="flex flex-col gap-4 rounded-xl border border-line bg-panel p-4 shadow-sm">
+        <div class="flex flex-col gap-3 rounded-xl border border-line bg-panel p-3">
             <div class="aspect-square w-full overflow-hidden rounded-lg border border-line bg-bg">
-                <img src="${u.avatar_url || avatarPlaceholder(u.display)}" alt="Аватар" class="h-full w-full object-cover" onerror="this.src='${avatarPlaceholder(u.display)}'">
+                <img src="${u.avatar_url || avatarPlaceholder(u.display)}" class="h-full w-full object-cover" onerror="this.src='${avatarPlaceholder(u.display)}'">
             </div>
-            <div class="flex flex-col gap-1 text-center">
-                <h2 class="text-lg font-bold text-tx">${u.display}</h2>
-                <p class="font-mono text-xs text-mut">@${u.username}</p>
+            <div class="flex flex-col text-center">
+                <h2 class="text-base font-bold text-tx truncate">${u.display}</h2>
+                <p class="font-mono text-xs text-mut truncate">@${u.username}</p>
             </div>
         </div>
         
-        <div class="flex flex-col rounded-xl border border-line bg-panel px-4 py-2 shadow-sm lg:col-span-2">
+        <div class="flex flex-col rounded-xl border border-line bg-panel px-4 py-2 lg:col-span-2">
             ${row('user', 'Username', `@${u.username}`)}
-            ${row('user', 'Display Name', u.display)}
             ${row('id', 'Discord ID', `<span class="font-mono text-xs">${u.id}</span>`)}
-            ${row('cal', 'Дата регистрации', formatDate(u.reg))}
-            ${row('clock', 'Время в голосовых', u.voice || '0ч 0м')}
-            ${row('eye', 'Просмотры профиля', u.views || '0')}
+            ${row('cal', 'Регистрация', formatDate(u.reg))}
+            ${row('clock', 'Время в войсе', u.voice || '0ч 0м')}
         </div>
 
-        <div class="rounded-xl border border-line bg-[#141416] p-4 shadow-sm lg:col-span-3 lg:flex lg:items-center lg:justify-between">
-            <div class="flex items-center gap-4">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/10 border border-accent/20">
-                    ${icon('mic', 'h-5 w-5 text-accent')}
-                </div>
-                <div>
-                    <h4 class="text-xs font-semibold uppercase tracking-wider text-mut">Последняя голосовая сессия</h4>
-                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-tx">
-                        <span>${voiceServer}</span>
-                        ${voiceChannel}
-                    </div>
+        <div class="rounded-xl border border-line bg-panel p-4 lg:col-span-3 flex items-center gap-4">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-line">
+                ${icon('mic', 'h-5 w-5 text-mut')}
+            </div>
+            <div class="min-w-0">
+                <h4 class="text-xs font-semibold text-mut uppercase tracking-wider mb-1">Последняя сессия</h4>
+                <div class="text-sm font-medium text-tx truncate">
+                    ${isNoVoice ? 'Нет данных' : `${l.server} / ${l.channel}`}
                 </div>
             </div>
-            <div class="mt-3 text-xs text-mut lg:mt-0 lg:text-right">
-                <span class="block">Последнее событие</span>
-                <span class="font-mono text-zinc-400">${lastEvent}</span>
+            <div class="ml-auto text-xs text-mut text-right">
+                ${isNoVoice ? '' : l.left}
             </div>
         </div>
     </div>`;
@@ -496,23 +401,14 @@ function renderProfile(data) {
 
 function renderServers(data) {
     const servers = data.servers || [];
-    if (servers.length === 0) return renderEmpty('Общих серверов не обнаружено');
-
+    if (servers.length === 0) return renderEmpty('Нет общих серверов');
     return `<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         ${servers.map(s => `
-        <div class="flex items-start gap-3 rounded-xl border border-line bg-panel p-3 shadow-sm transition-colors hover:border-zinc-700">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-line font-bold text-zinc-300">
-                ${s.n.charAt(0).toUpperCase()}
-            </div>
-            <div class="min-w-0 flex-1">
-                <h4 class="truncate text-sm font-semibold text-tx" title="${s.n}">${s.n}</h4>
-                <div class="mt-1 flex flex-col gap-0.5 text-xs text-mut">
-                    <span>Участников: ${s.m.toLocaleString('ru-RU')}</span>
-                    <span class="flex items-center gap-1">
-                        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-                        В голосе: ${s.v}
-                    </span>
-                </div>
+        <div class="flex items-center gap-3 rounded-lg border border-line bg-panel p-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-line font-bold text-sm text-tx">${s.n.charAt(0).toUpperCase()}</div>
+            <div class="min-w-0">
+                <h4 class="truncate text-sm font-semibold text-tx">${s.n}</h4>
+                <div class="text-xs text-mut mt-0.5">Участников: ${s.m.toLocaleString('ru-RU')} · В голосе: ${s.v}</div>
             </div>
         </div>`).join('')}
     </div>`;
@@ -520,40 +416,31 @@ function renderServers(data) {
 
 function renderNicks(data) {
     const nicks = data.nicks || [];
-    if (nicks.length === 0) return renderEmpty('История смены никнеймов пуста');
-
-    return `<div class="overflow-hidden rounded-xl border border-line bg-panel shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-line bg-[#141416] text-xs font-semibold text-mut">
-                    <tr>
-                        <th scope="col" class="px-4 py-3">Никнейм</th>
-                        <th scope="col" class="px-4 py-3">Источник</th>
-                        <th scope="col" class="px-4 py-3 text-right">Дата смены</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-line/50">
-                    ${nicks.map(n => `
-                    <tr class="transition-colors hover:bg-line/20">
-                        <td class="px-4 py-3 font-medium text-tx">${n[0]}</td>
-                        <td class="px-4 py-3 text-mut">${n[1]}</td>
-                        <td class="px-4 py-3 text-right font-mono text-xs text-mut">${formatDate(n[2])}</td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        </div>
+    if (nicks.length === 0) return renderEmpty('История никнеймов пуста');
+    return `<div class="rounded-xl border border-line bg-panel overflow-hidden">
+        <table class="w-full text-left text-sm">
+            <thead class="border-b border-line bg-bg text-xs font-medium text-mut">
+                <tr><th class="px-4 py-2">Никнейм</th><th class="px-4 py-2">Источник</th><th class="px-4 py-2 text-right">Дата</th></tr>
+            </thead>
+            <tbody class="divide-y divide-line/50">
+                ${nicks.map(n => `<tr>
+                    <td class="px-4 py-2.5 text-tx">${n[0]}</td>
+                    <td class="px-4 py-2.5 text-mut">${n[1]}</td>
+                    <td class="px-4 py-2.5 text-right font-mono text-xs text-mut">${formatDate(n[2])}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
     </div>`;
 }
 
 function renderMedia(data) {
     const media = data.media || [];
-    if (media.length === 0) return renderEmpty('Нет сохранённых аватарок');
-
+    if (media.length === 0) return renderEmpty('Нет аватарок');
     return `<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
         ${media.map(m => {
             const isUrl = m.s && m.s.startsWith('http');
-            return `<div class="group relative aspect-square overflow-hidden rounded-lg border border-line bg-panel">
-                <img src="${isUrl ? m.s : avatarPlaceholder('?')}" alt="История аватарки" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" onerror="this.src='${avatarPlaceholder('?')}'">
+            return `<div class="aspect-square overflow-hidden rounded-lg border border-line bg-panel">
+                <img src="${isUrl ? m.s : avatarPlaceholder('?')}" class="h-full w-full object-cover" loading="lazy" onerror="this.src='${avatarPlaceholder('?')}'">
             </div>`;
         }).join('')}
     </div>`;
@@ -561,78 +448,46 @@ function renderMedia(data) {
 
 function renderFriends(data) {
     const friends = data.friends || [];
-    if (friends.length === 0) return renderEmpty('Нет данных о совместных сессиях');
-
-    return `<div class="overflow-hidden rounded-xl border border-line bg-panel shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-line bg-[#141416] text-xs font-semibold text-mut">
-                    <tr>
-                        <th scope="col" class="px-4 py-3">Пользователь</th>
-                        <th scope="col" class="px-4 py-3">Провели вместе</th>
-                        <th scope="col" class="px-4 py-3 text-right">Последний раз</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-line/50">
-                    ${friends.map(f => `
-                    <tr class="transition-colors hover:bg-line/20">
-                        <td class="px-4 py-3">
-                            <div class="flex items-center gap-2">
-                                <div class="flex h-6 w-6 items-center justify-center rounded-full bg-line text-[10px] font-bold text-zinc-300">
-                                    ${f.u.charAt(0).toUpperCase()}
-                                </div>
-                                <span class="font-medium text-tx">${f.u}</span>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-mut">${formatMinutes(f.min)}</td>
-                        <td class="px-4 py-3 text-right font-mono text-xs text-mut">${f.last}</td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        </div>
+    if (friends.length === 0) return renderEmpty('Нет совместных сессий');
+    return `<div class="rounded-xl border border-line bg-panel overflow-hidden">
+        <table class="w-full text-left text-sm">
+            <thead class="border-b border-line bg-bg text-xs font-medium text-mut">
+                <tr><th class="px-4 py-2">Пользователь</th><th class="px-4 py-2">Время</th><th class="px-4 py-2 text-right">Последний раз</th></tr>
+            </thead>
+            <tbody class="divide-y divide-line/50">
+                ${friends.map(f => `<tr>
+                    <td class="px-4 py-2.5 font-medium text-tx">${f.u}</td>
+                    <td class="px-4 py-2.5 text-mut">${formatMinutes(f.min)}</td>
+                    <td class="px-4 py-2.5 text-right font-mono text-xs text-mut">${f.last}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
     </div>`;
 }
 
 function renderEvents(data) {
     const sessions = data.sessions || [];
-    if (sessions.length === 0) return renderEmpty('История голосовых сессий пуста');
-
-    return `<div class="overflow-hidden rounded-xl border border-line bg-panel shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-line bg-[#141416] text-xs font-semibold text-mut">
-                    <tr>
-                        <th scope="col" class="px-4 py-3">Сервер / Канал</th>
-                        <th scope="col" class="px-4 py-3">Длительность</th>
-                        <th scope="col" class="px-4 py-3 text-right">Период</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-line/50">
-                    ${sessions.map(s => `
-                    <tr class="transition-colors hover:bg-line/20">
-                        <td class="px-4 py-3">
-                            <div class="flex flex-col">
-                                <span class="font-medium text-tx">${s.srv}</span>
-                                <span class="text-xs text-mut"># ${s.ch}</span>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${s.dur === 'В сети' ? 'bg-success/10 text-success' : 'bg-line text-zinc-300'}">
-                                ${s.dur}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right font-mono text-xs text-mut">${s.per}</td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        </div>
+    if (sessions.length === 0) return renderEmpty('История сессий пуста');
+    return `<div class="rounded-xl border border-line bg-panel overflow-hidden">
+        <table class="w-full text-left text-sm">
+            <thead class="border-b border-line bg-bg text-xs font-medium text-mut">
+                <tr><th class="px-4 py-2">Сервер</th><th class="px-4 py-2">Канал</th><th class="px-4 py-2">Время</th><th class="px-4 py-2 text-right">Период</th></tr>
+            </thead>
+            <tbody class="divide-y divide-line/50">
+                ${sessions.map(s => `<tr>
+                    <td class="px-4 py-2.5 font-medium text-tx">${s.srv}</td>
+                    <td class="px-4 py-2.5 text-mut">#${s.ch}</td>
+                    <td class="px-4 py-2.5 font-mono text-xs ${s.dur === 'В сети' ? 'text-success' : 'text-mut'}">${s.dur}</td>
+                    <td class="px-4 py-2.5 text-right font-mono text-xs text-mut">${s.per}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
     </div>`;
 }
 
 function renderEmpty(msg) {
-    return `<div class="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-panel/30 text-center">
-        <svg class="mb-3 h-10 w-10 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
-        <p class="text-sm font-medium text-zinc-400">${msg}</p>
+    return `<div class="flex h-64 items-center justify-center rounded-xl border border-dashed border-line bg-panel/30">
+        <p class="text-sm text-mut">${msg}</p>
     </div>`;
 }
 
@@ -642,6 +497,7 @@ async function loadData() {
         const res = await fetch('/api/data');
         DATA = await res.json();
         if (CURRENT_TARGET) render();
+        renderTargetList(); // Обновляем имена в списке, если бот их подтянул
     } catch (e) {}
 }
 
