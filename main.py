@@ -2,19 +2,18 @@
 import os
 import asyncpg
 import hashlib
+import json
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
-# --- НАСТРОЙКИ БАЗЫ ДАННЫХ ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Данные бота (в оперативной памяти)
+# Глобальная переменная для быстрого доступа
 STORE_DATA = {"targets": {}, "global_feed": []}
 
-# --- МОДЕЛИ ДАННЫХ ---
 class AuthData(BaseModel):
     username: str
     password: str
@@ -25,10 +24,8 @@ class TargetData(BaseModel):
 
 def hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
-# --- ПОДКЛЮЧЕНИЕ К БАЗЕ ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # При старте создаем пул соединений и таблицы
     app.state.pool = await asyncpg.create_pool(DATABASE_URL)
     async with app.state.pool.acquire() as conn:
         await conn.execute('''
@@ -43,9 +40,13 @@ async def lifespan(app: FastAPI):
                 target_id TEXT UNIQUE,
                 target_name TEXT
             );
+            -- Таблица для хранения состояния бота (JSON)
+            CREATE TABLE IF NOT EXISTS bot_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                data JSONB
+            );
         ''')
     yield
-    # При выключении закрываем пул
     await app.state.pool.close()
 
 app = FastAPI(lifespan=lifespan)
@@ -113,10 +114,28 @@ async def get_all_targets(request: Request):
 async def update_data(request: Request):
     global STORE_DATA
     STORE_DATA = await request.json()
+    
+    # СОХРАНЯЕМ ВСЁ В БАЗУ (JSONB)
+    async with request.app.state.pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO bot_state (id, data) VALUES (1, $1)
+            ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data
+            """,
+            json.dumps(STORE_DATA)
+        )
     return {"status": "ok"}
 
 @app.get("/api/data")
-async def get_data(): return STORE_DATA
+async def get_data(request: Request):
+    global STORE_DATA
+    # Если память пуста (после перезапуска), читаем из базы
+    if not STORE_DATA.get("targets"):
+        async with request.app.state.pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT data FROM bot_state WHERE id=1")
+            if row and row["data"]:
+                STORE_DATA = json.loads(row["data"])
+    return STORE_DATA
 
 @app.get("/api/ping")
 async def ping(): return {"status": "alive"}
