@@ -10,8 +10,6 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-
-# Глобальная переменная для быстрого доступа
 STORE_DATA = {"targets": {}, "global_feed": []}
 
 class AuthData(BaseModel):
@@ -40,7 +38,6 @@ async def lifespan(app: FastAPI):
                 target_id TEXT UNIQUE,
                 target_name TEXT
             );
-            -- Таблица для хранения состояния бота (JSON)
             CREATE TABLE IF NOT EXISTS bot_state (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 data JSONB
@@ -55,7 +52,6 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 @app.get("/", response_class=HTMLResponse)
 async def index(): return FileResponse("index.html")
 
-# --- АВТОРИЗАЦИЯ ---
 @app.post("/api/register")
 async def register(data: AuthData, request: Request):
     async with request.app.state.pool.acquire() as conn:
@@ -78,7 +74,6 @@ async def login(data: AuthData, request: Request):
         if row: return {"status": "ok", "user_id": row["id"], "username": row["username"]}
         raise HTTPException(401, "Неверный логин или пароль")
 
-# --- УПРАВЛЕНИЕ ЦЕЛЯМИ ---
 @app.get("/api/my_targets/{user_id}")
 async def get_user_targets(user_id: int, request: Request):
     async with request.app.state.pool.acquire() as conn:
@@ -88,6 +83,9 @@ async def get_user_targets(user_id: int, request: Request):
 @app.post("/api/add_target/{user_id}")
 async def add_target(user_id: int, data: TargetData, request: Request):
     async with request.app.state.pool.acquire() as conn:
+        user_exists = await conn.fetchval("SELECT id FROM users WHERE id=$1", user_id)
+        if not user_exists:
+            raise HTTPException(401, "Сессия устарела. Перезайдите.")
         try:
             await conn.execute(
                 "INSERT INTO targets (user_id, target_id, target_name) VALUES ($1, $2, $3)",
@@ -103,7 +101,6 @@ async def remove_target(user_id: int, target_id: str, request: Request):
         await conn.execute("DELETE FROM targets WHERE user_id=$1 AND target_id=$2", user_id, target_id)
         return {"status": "ok"}
 
-# --- ДЛЯ БОТА ---
 @app.get("/api/bot_targets")
 async def get_all_targets(request: Request):
     async with request.app.state.pool.acquire() as conn:
@@ -113,15 +110,15 @@ async def get_all_targets(request: Request):
 @app.post("/api/update")
 async def update_data(request: Request):
     global STORE_DATA
-    STORE_DATA = await request.json()
+    new_data = await request.json()
     
-    # СОХРАНЯЕМ ВСЁ В БАЗУ (JSONB)
+    if not new_data.get("targets") and STORE_DATA.get("targets"):
+        return {"status": "ignored_empty"}
+
+    STORE_DATA = new_data
     async with request.app.state.pool.acquire() as conn:
         await conn.execute(
-            """
-            INSERT INTO bot_state (id, data) VALUES (1, $1)
-            ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data
-            """,
+            "INSERT INTO bot_state (id, data) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data",
             json.dumps(STORE_DATA)
         )
     return {"status": "ok"}
@@ -129,7 +126,6 @@ async def update_data(request: Request):
 @app.get("/api/data")
 async def get_data(request: Request):
     global STORE_DATA
-    # Если память пуста (после перезапуска), читаем из базы
     if not STORE_DATA.get("targets"):
         async with request.app.state.pool.acquire() as conn:
             row = await conn.fetchrow("SELECT data FROM bot_state WHERE id=1")
