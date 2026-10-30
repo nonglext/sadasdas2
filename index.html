@@ -89,24 +89,22 @@ tailwind.config = {
 
     <div class="mx-auto flex w-full max-w-[1300px] flex-1 items-start gap-6 p-4 sm:p-6 lg:flex-row flex-col">
         
-        <!-- Сайдбар (Только Лента и Отслеживание + Подменю) -->
+        <!-- Сайдбар -->
         <aside class="flex w-full flex-col gap-4 lg:sticky lg:top-[80px] lg:w-[240px] shrink-0">
-            <!-- Главное меню -->
-            <nav class="flex flex-col gap-0.5" id="main-menu">
-                <a href="#feed" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors" id="nav-feed">
+            <nav class="flex flex-col gap-1">
+                <a href="#feed" class="flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors" id="nav-feed">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     Лента
                 </a>
-                <a href="#tracking" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors" id="nav-tracking">
+                <a href="#tracking" class="flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors" id="nav-tracking">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                     Отслеживание
                 </a>
             </nav>
 
-            <!-- Подменю (Вкладки цели), появляется если выбрана цель -->
-            <div id="sub-menu-container" class="hidden border-t border-line pt-3 mt-1">
+            <div id="sub-menu-container" class="hidden border-t border-line pt-4 mt-1">
                 <h3 class="mb-2 px-2 text-[10px] font-semibold text-mut uppercase tracking-wider" id="selected-target-name">Вкладки</h3>
-                <nav class="flex flex-col gap-0.5" id="sub-menu"></nav>
+                <nav class="flex flex-col gap-1" id="sub-menu"></nav>
             </div>
         </aside>
 
@@ -117,10 +115,6 @@ tailwind.config = {
                 <span class="text-sm">Загрузка...</span>
             </div>
             
-            <div id="empty-state" class="hidden h-[400px] flex-col items-center justify-center border border-dashed border-line rounded-xl bg-panel/30">
-                <p class="text-sm text-mut">Выберите цель из списка</p>
-            </div>
-
             <div id="content" class="fade-in"></div>
         </main>
     </div>
@@ -231,7 +225,6 @@ async function loadTargets() {
         const res = await fetch(`/api/my_targets/${USER_ID}`);
         userTargets = await res.json();
         
-        // Если мы на вкладке профиля, но цель не выбрана, берем первую
         const hash = location.hash.slice(1) || 'feed';
         if (['profile', 'servers', 'nicks', 'media', 'friends', 'events'].includes(hash)) {
             if (!CURRENT_TARGET && userTargets.length > 0) {
@@ -296,7 +289,6 @@ const SUB_TABS = [
 function render() {
     let hash = location.hash.slice(1) || 'feed';
     
-    // Защита от пустого профиля: если пытаемся открыть вкладку цели без самой цели
     if (['profile', 'servers', 'nicks', 'media', 'friends', 'events'].includes(hash) && !CURRENT_TARGET) {
         if (userTargets.length > 0) {
             CURRENT_TARGET = userTargets[0].target_id;
@@ -306,22 +298,20 @@ function render() {
         }
     }
 
-    // Обновляем верхнее меню
-    document.getElementById('nav-feed').className = `flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors ${hash === 'feed' ? 'bg-line text-tx' : 'text-mut hover:bg-line/50 hover:text-tx'}`;
-    document.getElementById('nav-tracking').className = `flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors ${hash === 'tracking' ? 'bg-line text-tx' : 'text-mut hover:bg-line/50 hover:text-tx'}`;
+    // Подсветка главных вкладок
+    document.getElementById('nav-feed').className = `flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors ${hash === 'feed' ? 'bg-[#1e1f22] text-tx' : 'text-mut hover:bg-[#1e1f22]/50 hover:text-tx'}`;
+    document.getElementById('nav-tracking').className = `flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors ${hash === 'tracking' ? 'bg-[#1e1f22] text-tx' : 'text-mut hover:bg-[#1e1f22]/50 hover:text-tx'}`;
 
-    // Отображение подменю
     const subMenuContainer = document.getElementById('sub-menu-container');
     if (['profile', 'servers', 'nicks', 'media', 'friends', 'events'].includes(hash) && CURRENT_TARGET) {
         subMenuContainer.classList.remove('hidden');
-        
         const targetName = DATA.targets?.[CURRENT_TARGET]?.user?.display || userTargets.find(t => t.target_id === CURRENT_TARGET)?.target_name || CURRENT_TARGET;
         document.getElementById('selected-target-name').textContent = targetName;
 
         document.getElementById('sub-menu').innerHTML = SUB_TABS.map(t => {
             const isActive = t.id === hash;
-            return `<a href="#${t.id}" class="flex h-8 items-center gap-2.5 rounded px-2 text-sm transition-colors ${isActive ? 'text-tx font-medium bg-line/30' : 'text-mut hover:text-tx hover:bg-line/30'}">
-                ${icon(t.icon, `h-3.5 w-3.5 ${isActive ? 'text-accent' : 'text-mut'}`)} ${t.label}
+            return `<a href="#${t.id}" class="flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm transition-colors ${isActive ? 'bg-[#1e1f22] text-tx font-medium' : 'text-mut hover:bg-[#1e1f22]/50 hover:text-tx'}">
+                ${icon(t.icon, `h-4 w-4 ${isActive ? 'text-accent' : 'text-mut'}`)} ${t.label}
             </a>`;
         }).join('');
     } else {
@@ -329,24 +319,13 @@ function render() {
     }
 
     const loader = document.getElementById('loader');
-    const emptyState = document.getElementById('empty-state');
     const content = document.getElementById('content');
-
     loader.style.display = 'none';
-    emptyState.style.display = 'none';
     content.innerHTML = '';
 
-    if (hash === 'feed') {
-        content.innerHTML = renderFeed();
-        return;
-    }
+    if (hash === 'feed') { content.innerHTML = renderFeed(); return; }
+    if (hash === 'tracking') { content.innerHTML = renderTrackingList(); return; }
 
-    if (hash === 'tracking') {
-        content.innerHTML = renderTrackingList();
-        return;
-    }
-
-    // Если это вкладка цели
     const targetData = DATA.targets?.[CURRENT_TARGET];
     if (!targetData) {
         content.innerHTML = `<div class="flex h-[400px] flex-col items-center justify-center text-mut">
@@ -355,16 +334,14 @@ function render() {
         </div>`;
         return;
     }
-
     content.innerHTML = renderSubTab(hash, targetData);
 }
 
-// --- РЕНДЕР ЛЕНТЫ ---
+// --- ЛЕНТА ---
 function renderFeed() {
     const rawFeed = DATA.global_feed || [];
     const uniqueFeed = [];
     const seenUsers = new Set();
-    
     for (const item of rawFeed) {
         const userKey = item.user_id || item.user;
         if (!seenUsers.has(userKey)) {
@@ -372,9 +349,7 @@ function renderFeed() {
             uniqueFeed.push(item);
         }
     }
-
-    if (uniqueFeed.length === 0) return renderEmpty('Лента пока пуста. Смените аватарку на сервере, чтобы она появилась здесь.');
-
+    if (uniqueFeed.length === 0) return renderEmpty('Лента пока пуста.');
     return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         ${uniqueFeed.map(f => `
         <div class="bg-panel border border-line rounded-xl overflow-hidden flex flex-col group">
@@ -393,26 +368,25 @@ function renderFeed() {
     </div>`;
 }
 
-// --- РЕНДЕР СПИСКА ОТСЛЕЖИВАНИЯ (Как на скрине) ---
+// --- СПИСОК ОТСЛЕЖИВАНИЯ ---
 function renderTrackingList() {
     if (userTargets.length === 0) return renderEmpty('Вы пока никого не отслеживаете.');
-    
-    return `<div class="flex flex-col gap-3">
+    return `<div class="flex flex-col gap-2">
         ${userTargets.map(t => {
             const userData = DATA.targets?.[t.target_id]?.user || {};
             const displayName = userData.display || t.target_name || t.target_id;
             const avatar = userData.avatar_url || avatarPlaceholder(displayName);
             const isOnline = DATA.targets?.[t.target_id]?.sessions?.some(s => s.dur === 'В сети');
             
-            return `<div class="flex items-center justify-between p-3 rounded-xl border border-line bg-panel hover:border-accent/40 transition cursor-pointer" onclick="selectTarget('${t.target_id}')">
+            return `<div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22] border border-transparent hover:border-line transition cursor-pointer" onclick="selectTarget('${t.target_id}')">
                 <div class="flex items-center gap-4">
                     <div class="relative">
-                        <img src="${avatar}" class="w-12 h-12 rounded-full object-cover">
-                        ${isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-success border-2 border-panel"></span>' : ''}
+                        <img src="${avatar}" class="w-10 h-10 rounded-full object-cover">
+                        ${isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-success border-2 border-[#1e1f22]"></span>' : ''}
                     </div>
                     <div class="flex flex-col">
                         <span class="text-sm font-semibold text-tx">${displayName}</span>
-                        <span class="text-xs text-mut font-mono">${t.target_id}</span>
+                        <span class="text-[11px] text-mut font-mono">${t.target_id}</span>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
@@ -426,7 +400,7 @@ function renderTrackingList() {
     </div>`;
 }
 
-// --- РЕНДЕР ВКЛАДОК ЦЕЛИ ---
+// --- ВКЛАДКИ ЦЕЛИ ---
 function renderSubTab(tabId, data) {
     switch (tabId) {
         case 'profile': return renderProfile(data);
@@ -493,8 +467,8 @@ function renderServers(data) {
     if (servers.length === 0) return renderEmpty('Нет общих серверов');
     return `<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         ${servers.map(s => `
-        <div class="flex items-center gap-3 rounded-lg border border-line bg-panel p-3">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-line font-bold text-sm text-tx">${s.n.charAt(0).toUpperCase()}</div>
+        <div class="flex items-center gap-3 rounded-xl bg-[#1e1f22] p-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-line font-bold text-sm text-tx">${s.n.charAt(0).toUpperCase()}</div>
             <div class="min-w-0">
                 <h4 class="truncate text-sm font-semibold text-tx">${s.n}</h4>
                 <div class="text-xs text-mut mt-0.5">Участников: ${s.m.toLocaleString('ru-RU')} · В голосе: ${s.v}</div>
@@ -506,19 +480,13 @@ function renderServers(data) {
 function renderNicks(data) {
     const nicks = data.nicks || [];
     if (nicks.length === 0) return renderEmpty('История никнеймов пуста');
-    return `<div class="rounded-xl border border-line bg-panel overflow-hidden">
-        <table class="w-full text-left text-sm">
-            <thead class="border-b border-line bg-bg text-xs font-medium text-mut">
-                <tr><th class="px-4 py-2">Никнейм</th><th class="px-4 py-2">Источник</th><th class="px-4 py-2 text-right">Дата</th></tr>
-            </thead>
-            <tbody class="divide-y divide-line/50">
-                ${nicks.map(n => `<tr>
-                    <td class="px-4 py-2.5 text-tx">${n[0]}</td>
-                    <td class="px-4 py-2.5 text-mut">${n[1]}</td>
-                    <td class="px-4 py-2.5 text-right font-mono text-xs text-mut">${formatDate(n[2])}</td>
-                </tr>`).join('')}
-            </tbody>
-        </table>
+    return `<div class="flex flex-col gap-2">
+        ${nicks.map(n => `
+        <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]">
+            <div class="flex-1 text-sm font-medium text-tx">${n[0]}</div>
+            <div class="flex-1 text-xs text-mut">${n[1]}</div>
+            <div class="flex-1 text-right font-mono text-xs text-mut">${formatDate(n[2])}</div>
+        </div>`).join('')}
     </div>`;
 }
 
@@ -528,7 +496,7 @@ function renderMedia(data) {
     return `<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
         ${media.map(m => {
             const isUrl = m.s && m.s.startsWith('http');
-            return `<div class="aspect-square overflow-hidden rounded-lg border border-line bg-panel cursor-pointer" onclick="openModal('${isUrl ? m.s : ''}')">
+            return `<div class="aspect-square overflow-hidden rounded-xl border border-line bg-panel cursor-pointer hover:border-accent/40 transition-colors" onclick="openModal('${isUrl ? m.s : ''}')">
                 <img src="${isUrl ? m.s : avatarPlaceholder('?')}" class="h-full w-full object-cover" loading="lazy" onerror="this.src='${avatarPlaceholder('?')}'">
             </div>`;
         }).join('')}
@@ -538,39 +506,30 @@ function renderMedia(data) {
 function renderFriends(data) {
     const friends = data.friends || [];
     if (friends.length === 0) return renderEmpty('Нет совместных сессий');
-    return `<div class="rounded-xl border border-line bg-panel overflow-hidden">
-        <table class="w-full text-left text-sm">
-            <thead class="border-b border-line bg-bg text-xs font-medium text-mut">
-                <tr><th class="px-4 py-2">Пользователь</th><th class="px-4 py-2">Время</th><th class="px-4 py-2 text-right">Последний раз</th></tr>
-            </thead>
-            <tbody class="divide-y divide-line/50">
-                ${friends.map(f => `<tr>
-                    <td class="px-4 py-2.5 font-medium text-tx">${f.u}</td>
-                    <td class="px-4 py-2.5 text-mut">${formatMinutes(f.min)}</td>
-                    <td class="px-4 py-2.5 text-right font-mono text-xs text-mut">${f.last}</td>
-                </tr>`).join('')}
-            </tbody>
-        </table>
+    return `<div class="flex flex-col gap-2">
+        ${friends.map(f => `
+        <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]">
+            <div class="flex items-center gap-3 flex-1">
+                <div class="flex h-6 w-6 items-center justify-center rounded-full bg-line text-[10px] font-bold text-zinc-300">${f.u.charAt(0).toUpperCase()}</div>
+                <span class="text-sm font-medium text-tx">${f.u}</span>
+            </div>
+            <div class="flex-1 text-xs text-mut">${formatMinutes(f.min)}</div>
+            <div class="flex-1 text-right font-mono text-xs text-mut">${f.last}</div>
+        </div>`).join('')}
     </div>`;
 }
 
 function renderEvents(data) {
     const sessions = data.sessions || [];
     if (sessions.length === 0) return renderEmpty('История сессий пуста');
-    return `<div class="rounded-xl border border-line bg-panel overflow-hidden">
-        <table class="w-full text-left text-sm">
-            <thead class="border-b border-line bg-bg text-xs font-medium text-mut">
-                <tr><th class="px-4 py-2">Сервер</th><th class="px-4 py-2">Канал</th><th class="px-4 py-2">Время</th><th class="px-4 py-2 text-right">Период</th></tr>
-            </thead>
-            <tbody class="divide-y divide-line/50">
-                ${sessions.map(s => `<tr>
-                    <td class="px-4 py-2.5 font-medium text-tx">${s.srv}</td>
-                    <td class="px-4 py-2.5 text-mut">#${s.ch}</td>
-                    <td class="px-4 py-2.5 font-mono text-xs ${s.dur === 'В сети' ? 'text-success' : 'text-mut'}">${s.dur}</td>
-                    <td class="px-4 py-2.5 text-right font-mono text-xs text-mut">${s.per}</td>
-                </tr>`).join('')}
-            </tbody>
-        </table>
+    return `<div class="flex flex-col gap-2">
+        ${sessions.map(s => `
+        <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]">
+            <div class="flex-1 text-sm font-medium text-tx">${s.srv}</div>
+            <div class="flex-1 text-sm text-mut">#${s.ch}</div>
+            <div class="flex-1 text-sm font-mono ${s.dur === 'В сети' ? 'text-success' : 'text-mut'}">${s.dur}</div>
+            <div class="flex-1 text-right text-xs font-mono text-mut">${s.per}</div>
+        </div>`).join('')}
     </div>`;
 }
 
@@ -589,7 +548,6 @@ async function loadData() {
     } catch (e) {}
 }
 
-// Функция для открытия картинки на весь экран
 window.openModal = (url) => {
     if (!url) return;
     const modal = document.getElementById('image-modal');
