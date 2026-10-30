@@ -9,128 +9,242 @@
 tailwind.config={theme:{extend:{colors:{bg:'#111214',panel:'#1e1f22',line:'#2b2d31',tx:'#dbdee1',mut:'#949ba4',acc:'#5865F2'}}}}
 </script>
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-*,*::before,*::after{box-sizing:border-box}
-body{margin:0;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;background:#111214;color:#dbdee1}
+:root{color-scheme:dark}
+body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;font-size:14px;background:#111214;color:#dbdee1}
 .btn{transition:filter .15s,background .15s,transform .1s}.btn:hover{filter:brightness(1.15)}.btn:active{transform:scale(.97)}
-.btn:focus-visible,.nav:focus-visible,input:focus-visible{outline:2px solid #5865F2;outline-offset:1px}
 tbody tr{transition:background .15s}tbody tr:hover{background:#25272b}
 .view{animation:in .2s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:#2b2d31;border-radius:4px}
-.loader { border: 4px solid #2b2d31; border-top: 4px solid #5865F2; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 50px auto; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.loader{border:4px solid #2b2d31;border-top:4px solid #5865F2;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:50px auto}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<nav class="sticky top-0 z-20 bg-panel border-b border-line" style="top:0">
-  <div class="max-w-[1200px] mx-auto px-4 h-14 flex items-center gap-3">
-    <div class="text-lg font-extrabold tracking-tight flex items-center gap-2"><span class="w-6 h-6 rounded-md bg-acc grid place-items-center text-white text-xs">T</span>Tracker</div>
-    <div class="flex-1 max-w-md mx-auto flex gap-2">
-      <input id="q" placeholder="Мониторинг профиля..." disabled class="w-full h-9 px-3 rounded-md bg-bg border border-line placeholder-mut text-sm opacity-50 cursor-not-allowed">
+<!-- Экран Авторизации -->
+<div id="auth-screen" class="fixed inset-0 bg-bg z-50 flex items-center justify-center hidden">
+  <div class="bg-panel border border-line p-8 rounded-lg w-full max-w-sm shadow-2xl">
+    <h2 class="text-2xl font-bold mb-6 text-center" id="auth-title">Вход</h2>
+    <form id="auth-form" class="flex flex-col gap-4">
+      <input type="text" id="auth-user" placeholder="Логин" class="h-10 px-3 rounded-md bg-bg border border-line focus:outline-none focus:border-acc" required>
+      <input type="password" id="auth-pass" placeholder="Пароль" class="h-10 px-3 rounded-md bg-bg border border-line focus:outline-none focus:border-acc" required>
+      <input type="password" id="auth-confirm" placeholder="Повторите пароль" class="h-10 px-3 rounded-md bg-bg border border-line focus:outline-none focus:border-acc hidden" required>
+      <button type="submit" class="btn h-10 bg-acc text-white font-semibold rounded-md mt-2" id="auth-btn">Войти</button>
+    </form>
+    <div class="text-center mt-4 text-xs text-mut">
+      <span id="auth-switch-text">Нет аккаунта?</span> 
+      <button type="button" id="auth-switch" class="text-acc hover:underline font-semibold ml-1">Зарегистрироваться</button>
     </div>
-    <div class="flex items-center gap-2"><img id="me" class="w-8 h-8 rounded-full" alt=""><span class="hidden sm:inline font-semibold" id="meName"></span></div>
   </div>
-</nav>
-<div class="max-w-[1200px] mx-auto px-4 py-5 grid gap-4 md:grid-cols-[210px_1fr] items-start">
-  <aside class="bg-panel border border-line rounded-md p-2 md:sticky md:top-[72px]">
-    <div class="hidden md:block text-center font-bold py-2 border-b border-line mb-2" id="sbName"></div>
-    <div id="menu" class="flex md:flex-col gap-1 overflow-x-auto"></div>
-  </aside>
-  <main id="view" class="min-w-0">
-    <div class="loader" id="loader"></div>
-  </main>
+</div>
+
+<!-- Основной Дашборд -->
+<div id="app-screen" class="hidden">
+  <nav class="sticky top-0 z-20 bg-panel border-b border-line">
+    <div class="max-w-[1200px] mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="text-lg font-extrabold flex items-center gap-2"><span class="w-6 h-6 rounded-md bg-acc grid place-items-center text-white text-xs">T</span>Tracker</div>
+      <div class="flex items-center gap-4">
+        <span class="text-sm text-mut" id="current-user-display"></span>
+        <button id="logout-btn" class="text-sm text-red-400 hover:text-red-300 font-semibold">Выйти</button>
+      </div>
+    </div>
+  </nav>
+  
+  <div class="max-w-[1200px] mx-auto px-4 py-5 grid gap-4 md:grid-cols-[260px_1fr] items-start">
+    <aside class="bg-panel border border-line rounded-md p-3 md:sticky md:top-[72px]">
+      
+      <!-- Добавление цели -->
+      <div class="mb-4 bg-[#25272b] p-2 rounded border border-line">
+        <label class="text-[10px] font-bold text-mut uppercase mb-1 block">Добавить цель</label>
+        <input type="text" id="new-target-id" placeholder="Discord ID" class="w-full bg-bg text-tx text-sm p-1.5 rounded outline-none border border-line mb-2">
+        <input type="text" id="new-target-name" placeholder="Имя (для себя)" class="w-full bg-bg text-tx text-sm p-1.5 rounded outline-none border border-line mb-2">
+        <button id="add-target-btn" class="btn w-full bg-acc text-white text-xs py-1.5 rounded font-bold">Добавить</button>
+      </div>
+
+      <!-- Список целей -->
+      <label class="text-[10px] font-bold text-mut uppercase mb-1 block">Мои цели</label>
+      <div id="target-list" class="flex flex-col gap-1 mb-4 max-h-48 overflow-y-auto"></div>
+      
+      <div class="hidden md:block text-center font-bold py-2 border-t border-line mb-2" id="sbName">Выберите цель</div>
+      <div id="menu" class="flex md:flex-col gap-1 overflow-x-auto"></div>
+    </aside>
+    <main id="view" class="min-w-0">
+      <div class="loader" id="loader"></div>
+    </main>
+  </div>
 </div>
 
 <script>
-let DATA = {};
+let DATA = {}, CURRENT_TARGET = null, USER_ID = null;
 const P={user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',server:'<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/>',tag:'<path d="M20 12 12 20 3 11V3h8z"/><circle cx="7.5" cy="7.5" r="1"/>',image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4.500a3.500 3.500 0 0 1 0 7M22 21c0-3-2-5-4-5.500"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'};
 const ic=(n,c='w-4 h-4')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${c} shrink-0">${P[n]}</svg>`;
-const av=(s,sz=40,sq=0)=>{if(!s) s='?';let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;const l=(s[0]||'?').toUpperCase();
- return 'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="hsl(${h},55%,42%)"/><stop offset="1" stop-color="hsl(${(h+50)%360},60%,22%)"/></linearGradient></defs><rect width="64" height="64" fill="url(#g)"/><text x="32" y="43" font-size="30" font-family="sans-serif" font-weight="700" text-anchor="middle" fill="#fff" fill-opacity=".85">${l}</text></svg>`)};
+const av=(s)=>{if(!s) s='?';let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return 'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="hsl(${h},55%,42%)"/><stop offset="1" stop-color="hsl(${(h+50)%360},60%,22%)"/></linearGradient></defs><rect width="64" height="64" fill="url(#g)"/><text x="32" y="43" font-size="30" font-family="sans-serif" font-weight="700" text-anchor="middle" fill="#fff" fill-opacity=".85">${(s[0]||'?').toUpperCase()}</text></svg>`)};
 const fmtMin=m=>Math.floor(m/60)+'ч '+(m%60)+'м';
 const fmtDate=s=>{if(!s) return '';const d=new Date(s);const p=n=>String(n).padStart(2,'0');return p(d.getDate())+'.'+p(d.getMonth()+1)+' в '+p(d.getHours())+':'+p(d.getMinutes())};
 const card='bg-panel border border-line rounded-md';
 const th='px-4 py-2.5 text-left text-xs font-semibold text-mut bg-[#25272b]';
 const TABS=[['profile','Профиль','user'],['servers','Серверы','server'],['nicks','Никнеймы','tag'],['media','Медиа','image'],['friends','Знакомые','users'],['events','События','cal']];
-const S={nf:'',nt:'',fsort:-1,open:-1};
+
+// === АВТОРИЗАЦИЯ ===
+let isRegistering = false;
+const authScreen = document.getElementById('auth-screen');
+const appScreen = document.getElementById('app-screen');
+const authForm = document.getElementById('auth-form');
+const confirmField = document.getElementById('auth-confirm');
+
+document.getElementById('auth-switch').addEventListener('click', () => {
+    isRegistering = !isRegistering;
+    document.getElementById('auth-title').textContent = isRegistering ? 'Регистрация' : 'Вход';
+    document.getElementById('auth-btn').textContent = isRegistering ? 'Создать аккаунт' : 'Войти';
+    document.getElementById('auth-switch-text').textContent = isRegistering ? 'Уже есть аккаунт?' : 'Нет аккаунта?';
+    document.getElementById('auth-switch').textContent = isRegistering ? 'Войти' : 'Зарегистрироваться';
+    if (isRegistering) confirmField.classList.remove('hidden');
+    else confirmField.classList.add('hidden');
+});
+
+authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const u = document.getElementById('auth-user').value;
+    const p = document.getElementById('auth-pass').value;
+    const c = document.getElementById('auth-confirm').value;
+    if (isRegistering && p !== c) return alert("Пароли не совпадают!");
+    
+    const url = isRegistering ? '/api/register' : '/api/login';
+    try {
+        const res = await fetch(url, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: u, password: p})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            localStorage.setItem('user_id', data.user_id);
+            localStorage.setItem('username', data.username);
+            checkAuth();
+        } else alert(data.detail || "Ошибка");
+    } catch(e) { alert("Сервер недоступен"); }
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.clear(); checkAuth();
+});
+
+function checkAuth() {
+    USER_ID = localStorage.getItem('user_id');
+    if (USER_ID) {
+        document.getElementById('current-user-display').textContent = localStorage.getItem('username');
+        authScreen.classList.add('hidden'); appScreen.classList.remove('hidden');
+        loadTargets();
+        loadData();
+        setInterval(loadData, 10000); // Автообновление данных раз в 10 сек
+    } else {
+        authScreen.classList.remove('hidden'); appScreen.classList.add('hidden');
+    }
+}
+
+// === УПРАВЛЕНИЕ ЦЕЛЯМИ ===
+let userTargets = [];
+
+async function loadTargets() {
+    if (!USER_ID) return;
+    try {
+        const res = await fetch(`/api/my_targets/${USER_ID}`);
+        userTargets = await res.json();
+        renderTargetList();
+    } catch(e) {}
+}
+
+function renderTargetList() {
+    const list = document.getElementById('target-list');
+    list.innerHTML = userTargets.map(t => `
+        <div class="flex items-center justify-between p-1.5 rounded bg-[#1e1f22] border border-line group cursor-pointer hover:border-acc/50 ${CURRENT_TARGET === t.target_id ? 'border-acc/50 bg-acc/10' : ''}" onclick="selectTarget('${t.target_id}')">
+            <span class="text-sm font-medium truncate" title="${t.target_id}">${t.target_name}</span>
+            <button class="text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onclick="event.stopPropagation(); removeTarget('${t.target_id}')">✕</button>
+        </div>
+    `).join('');
+}
+
+function selectTarget(id) {
+    CURRENT_TARGET = id;
+    renderTargetList();
+    document.getElementById('sbName').textContent = userTargets.find(t => t.target_id === id)?.target_name || "Неизвестно";
+    render();
+}
+
+document.getElementById('add-target-btn').addEventListener('click', async () => {
+    const tid = document.getElementById('new-target-id').value.trim();
+    const tname = document.getElementById('new-target-name').value.trim() || tid;
+    if (!tid) return alert("Введите Discord ID");
+
+    try {
+        const res = await fetch(`/api/add_target/${USER_ID}`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({target_id: tid, target_name: tname})
+        });
+        if (res.ok) {
+            document.getElementById('new-target-id').value = '';
+            document.getElementById('new-target-name').value = '';
+            await loadTargets();
+            selectTarget(tid);
+        } else {
+            const err = await res.json();
+            alert(err.detail);
+        }
+    } catch(e) { alert("Ошибка сервера"); }
+});
+
+window.removeTarget = async (tid) => {
+    if (!confirm("Удалить эту цель?")) return;
+    try {
+        await fetch(`/api/remove_target/${USER_ID}/${tid}`, {method: 'DELETE'});
+        if (CURRENT_TARGET === tid) CURRENT_TARGET = null;
+        await loadTargets();
+        if (userTargets.length > 0) selectTarget(userTargets[0].target_id);
+        else { document.getElementById('view').innerHTML = '<div class="text-center text-mut mt-10">Добавьте цель, чтобы начать</div>'; document.getElementById('sbName').textContent = "Нет целей"; }
+    } catch(e) {}
+};
+
+// === ОТОБРАЖЕНИЕ ДАННЫХ ===
+function render(){const t=(location.hash.slice(1)||'profile');const tab=V[t]?t:'profile';
+ document.getElementById('menu').innerHTML=TABS.map(([k,n,i])=>`<a href="#${k}" class="nav btn flex items-center gap-2.5 px-3 h-9 rounded-md whitespace-nowrap ${k===tab?'bg-acc/20 text-white font-semibold border border-acc/50':'text-mut hover:text-tx hover:bg-white/5 border border-transparent'}">${ic(i)}${n}</a>`).join('');
+ const v=document.getElementById('view');
+ if(!CURRENT_TARGET) { v.innerHTML = '<div class="text-center text-mut mt-10">Выберите или добавьте цель слева</div>'; return; }
+ v.innerHTML=`<div class="view">${V[tab]()}</div>`}
+
+async function loadData() {
+    if (!USER_ID) return;
+    try {
+        const res = await fetch('/api/data');
+        DATA = await res.json();
+        document.getElementById('loader').style.display = 'none';
+        if(CURRENT_TARGET) render();
+    } catch (e) {}
+}
 
 const V={
-profile(){if(!DATA.user) return '';const u=DATA.user,l=DATA.lastVoice||{server:'Нет',channel:'Нет',left:'-'};
+profile(){if(!DATA.targets || !CURRENT_TARGET || !DATA.targets[CURRENT_TARGET]) return ''; const t=DATA.targets[CURRENT_TARGET]; const u=t.user, l=t.lastVoice;
  const row=(i,k,v)=>`<div class="flex items-center gap-3 py-2"><span class="flex items-center gap-2 text-mut w-36 shrink-0">${ic(i,'w-4 h-4')}${k}</span><span class="font-medium break-all">${v}</span></div>`;
  return `<div class="${card} p-4 grid gap-5 lg:grid-cols-[280px_1fr_260px]">
-  <div><img src="${u.avatar_url || av(u.display)}" alt="Аватарка" class="w-full aspect-square rounded-md border border-line object-cover" onerror="this.src='${av(u.display)}'"></div>
+  <div><img src="${u.avatar_url || av(u.display)}" class="w-full aspect-square rounded-md border border-line object-cover" onerror="this.src='${av(u.display)}'"></div>
   <div class="divide-y divide-line/60 sm:columns-2 sm:gap-8 sm:divide-y-0 lg:block lg:columns-1">
    ${row('user','Username',u.username)}${row('user','Display Name',u.display)}${row('user','Discord ID',u.id)}${row('cal','Регистрация',u.reg)}
    ${row('clock','Всего в войсе',u.voice)}${row('eye','Просмотров',u.views)}
   </div>
   <div class="bg-[#25272b] border border-line border-l-4 border-l-acc rounded-md p-3 self-start">
    <div class="font-bold mb-2">Последний голосовой канал</div>
-   <div class="flex items-center gap-2">
-     <div class="w-7 h-7 rounded-md bg-acc flex items-center justify-center text-white text-xs font-bold">#</div>
-     <span class="font-medium">${l.server}</span><span class="text-mut">·</span><span class="text-mut flex items-center gap-1">${ic('mic','w-3.5 h-3.5')}${l.channel}</span>
-   </div>
-   <div class="text-xs text-mut mt-2">Вышел из канала: ${l.left}</div>
-  </div>
- </div>`},
-servers(){
-  if(!DATA.servers || DATA.servers.length === 0) return `<div class="text-center p-10 border border-line rounded-md text-mut">Общих серверов не найдено</div>`;
-  return `<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">${DATA.servers.map(s=>`
- <div class="${card} p-3 flex gap-3 relative hover:border-acc/60 transition-colors">
-  <div class="flex flex-col items-start gap-2"><div class="w-12 h-12 rounded-md bg-acc/20 flex items-center justify-center text-acc font-bold text-xl">${s.n.charAt(0)}</div></div>
-  <div class="min-w-0"><div class="font-bold truncate">${s.n}</div>
-   <div class="text-mut text-[13px] mt-1 leading-5">Участников: ${s.m.toLocaleString('ru-RU')} · В голосе: ${s.v}</div></div>
-  </div>`).join('')}</div>`},
-nicks(){const rows=DATA.nicks.map((r,i)=>[r,i]).filter(([r])=>(!S.nf||r[2].slice(0,10)>=S.nf)&&(!S.nt||r[2].slice(0,10)<=S.nt)).sort((a,b)=>b[0][2].localeCompare(a[0][2]));
- const inp=(id,l,v)=>`<label class="text-xs font-semibold flex flex-col gap-1.5">${l}<input type="date" value="${v}" onchange="S.${id}=this.value;render()" class="h-9 px-2 rounded-md bg-bg border border-line text-sm font-normal"></label>`;
- return `<div class="${card} p-3 mb-3 flex flex-wrap items-end gap-3 justify-between"><div class="flex gap-3">${inp('nf','От даты',S.nf)}${inp('nt','До даты',S.nt)}</div></div>
- <div class="${card} overflow-x-auto"><table class="w-full min-w-[560px]"><thead><tr><th class="${th}">Никнейм</th><th class="${th}">Сервер</th><th class="${th} text-right">Дата ↓</th></tr></thead><tbody>
- ${rows.map(([r,i])=>`<tr class="border-t border-line"><td class="px-4 py-2 font-semibold">${r[0]}</td><td class="px-4 py-2 text-mut">${r[1]}</td><td class="px-4 py-2 text-right text-mut tabular-nums">${fmtDate(r[2])}</td></tr>`).join('')||`<tr><td colspan="3" class="p-6 text-center text-mut">Нет записей</td></tr>`}</tbody></table></div>`},
-media(){
-  if(!DATA.media || DATA.media.length === 0) return `<div class="text-center p-10 border border-line rounded-md text-mut">История аватарок пуста</div>`;
-  return `<div class="grid gap-2 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">${DATA.media.map((m,i)=>{
-    const isUrl = m.s && m.s.startsWith('http');
-    const imgSrc = isUrl ? m.s : av('?');
-    return `
- <div class="relative aspect-square rounded-md overflow-hidden border border-line group bg-panel">
-    <img src="${imgSrc}" alt="Avatar" class="w-full h-full object-cover transition" onerror="this.src='${av('?')}'">
- </div>`
-}).join('')}</div>`},
-friends(){
-  if(!DATA.friends || DATA.friends.length === 0) return `<div class="text-center p-10 border border-line rounded-md text-mut">Список знакомых пуст</div>`;
-  return `<div class="${card} p-3"><div class="overflow-x-auto rounded-md border border-line"><table class="w-full min-w-[520px]"><thead><tr><th class="${th}">Пользователь</th><th class="${th}">Провели вместе</th><th class="${th}">Последний раз</th></tr></thead><tbody>
- ${DATA.friends.map(f=>`<tr class="border-t border-line"><td class="px-4 py-2"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-full bg-acc/20 flex items-center justify-center text-acc font-bold">${f.u.charAt(0)}</div><b>${f.u}</b></div></td><td class="px-4 py-2 text-mut tabular-nums">${fmtMin(f.min)}</td><td class="px-4 py-2 text-mut tabular-nums">${f.last}</td></tr>`).join('')}</tbody></table></div></div>`},
-events(){
-  if(!DATA.sessions || DATA.sessions.length === 0) return `<div class="text-center p-10 border border-line rounded-md text-mut">Записей о голосовых сессиях нет</div>`;
-  return `<div class="${card} overflow-x-auto"><table class="w-full min-w-[600px]"><thead><tr><th class="${th}">Сервер</th><th class="${th}">Канал</th><th class="${th}">Длительность</th><th class="${th} text-right">Период ↓</th></tr></thead><tbody>
- ${DATA.sessions.map((s,i)=>`<tr class="border-t border-line"><td class="px-4 py-2"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded bg-acc/20 flex items-center justify-center text-acc text-[10px] font-bold">${s.srv.charAt(0)}</div>${s.srv}</div></td><td class="px-4 py-2 text-mut">#&nbsp;${s.ch}</td><td class="px-4 py-2 font-semibold ${s.dur==='В сети'?'text-green-500':''}">${s.dur}</td><td class="px-4 py-2 text-right"><span class="text-mut tabular-nums">${s.per}</span></td></tr>`).join('')}</tbody></table></div>`}
+   <div class="flex items-center gap-2"><div class="w-7 h-7 rounded-md bg-acc flex items-center justify-center text-white text-xs font-bold">#</div><span class="font-medium">${l.server}</span><span class="text-mut">·</span><span class="text-mut flex items-center gap-1">${ic('mic','w-3.5 h-3.5')}${l.channel}</span></div>
+   <div class="text-xs text-mut mt-2">Вышел из канала: ${l.left}</div></div></div>`},
+servers(){ const srv=DATA.targets[CURRENT_TARGET]?.servers; if(!srv||srv.length===0) return `<div class="text-center p-10 border border-line rounded-md text-mut">Общих серверов не найдено</div>`;
+  return `<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">${srv.map(s=>`<div class="${card} p-3 flex gap-3"><div class="w-12 h-12 rounded-md bg-acc/20 flex items-center justify-center text-acc font-bold text-xl">${s.n.charAt(0)}</div><div class="min-w-0"><div class="font-bold truncate">${s.n}</div><div class="text-mut text-[13px] mt-1 leading-5">Участников: ${s.m.toLocaleString('ru-RU')} · В голосе: ${s.v}</div></div></div>`).join('')}</div>`},
+nicks(){ const nicks=DATA.targets[CURRENT_TARGET]?.nicks; if(!nicks||nicks.length===0) return `<div class="text-center p-10 border border-line rounded-md text-mut">Нет записей</div>`;
+ return `<div class="${card} overflow-x-auto"><table class="w-full min-w-[560px]"><thead><tr><th class="${th}">Никнейм</th><th class="${th}">Сервер</th><th class="${th} text-right">Дата ↓</th></tr></thead><tbody>${nicks.map(r=>`<tr class="border-t border-line"><td class="px-4 py-2 font-semibold">${r[0]}</td><td class="px-4 py-2 text-mut">${r[1]}</td><td class="px-4 py-2 text-right text-mut tabular-nums">${fmtDate(r[2])}</td></tr>`).join('')}</tbody></table></div>`},
+media(){ const media=DATA.targets[CURRENT_TARGET]?.media; if(!media||media.length===0) return `<div class="text-center p-10 border border-line rounded-md text-mut">История аватарок пуста</div>`;
+ return `<div class="grid gap-2 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">${media.map(m=>{const isUrl=m.s&&m.s.startsWith('http');return `<div class="relative aspect-square rounded-md overflow-hidden border border-line bg-panel"><img src="${isUrl?m.s:av('?')}" class="w-full h-full object-cover" onerror="this.src='${av('?')}'"></div>`}).join('')}</div>`},
+friends(){ const friends=DATA.targets[CURRENT_TARGET]?.friends; if(!friends||friends.length===0) return `<div class="text-center p-10 border border-line rounded-md text-mut">Список знакомых пуст</div>`;
+ return `<div class="${card} p-3 overflow-x-auto"><table class="w-full min-w-[520px]"><thead><tr><th class="${th}">Пользователь</th><th class="${th}">Провели вместе</th><th class="${th}">Последний раз</th></tr></thead><tbody>${friends.map(f=>`<tr class="border-t border-line"><td class="px-4 py-2"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-full bg-acc/20 flex items-center justify-center text-acc font-bold">${f.u.charAt(0)}</div><b>${f.u}</b></div></td><td class="px-4 py-2 text-mut tabular-nums">${fmtMin(f.min)}</td><td class="px-4 py-2 text-mut tabular-nums">${f.last}</td></tr>`).join('')}</tbody></table></div>`},
+events(){ const sessions=DATA.targets[CURRENT_TARGET]?.sessions; if(!sessions||sessions.length===0) return `<div class="text-center p-10 border border-line rounded-md text-mut">Записей о голосовых сессиях нет</div>`;
+ return `<div class="${card} overflow-x-auto"><table class="w-full min-w-[600px]"><thead><tr><th class="${th}">Сервер</th><th class="${th}">Канал</th><th class="${th}">Длительность</th><th class="${th} text-right">Период ↓</th></tr></thead><tbody>${sessions.map(s=>`<tr class="border-t border-line"><td class="px-4 py-2"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded bg-acc/20 flex items-center justify-center text-acc text-[10px] font-bold">${s.srv.charAt(0)}</div>${s.srv}</div></td><td class="px-4 py-2 text-mut">#&nbsp;${s.ch}</td><td class="px-4 py-2 font-semibold ${s.dur==='В сети'?'text-green-500':''}">${s.dur}</td><td class="px-4 py-2 text-right"><span class="text-mut tabular-nums">${s.per}</span></td></tr>`).join('')}</tbody></table></div>`}
 };
 
-function render(){const t=(location.hash.slice(1)||'profile');const tab=V[t]?t:'profile';
- document.getElementById('menu').innerHTML=TABS.map(([k,n,i])=>`<a href="#${k}" class="nav btn flex items-center gap-2.5 px-3 h-9 rounded-md whitespace-nowrap ${k===tab?'bg-acc/20 text-white font-semibold border border-acc/50':'text-mut hover:text-tx hover:bg-white/5 border border-transparent'}">${ic(i)}${n}</a>`).join('');
- const v=document.getElementById('view');v.innerHTML=`<div class="view">${V[tab]()}</div>`}
-
-async function loadData() {
-    try {
-        const res = await fetch('/api/data');
-        DATA = await res.json();
-        document.getElementById('loader').style.display = 'none';
-        if(DATA.user) {
-            const u=DATA.user;
-            document.getElementById('me').src = u.avatar_url ? u.avatar_url : av(u.display);
-            document.getElementById('meName').textContent=u.username;
-            document.getElementById('sbName').textContent=u.display;
-            render();
-        } else {
-            document.getElementById('view').innerHTML = '<div class="text-center text-mut mt-10">Данных пока нет. Бот еще не прислал информацию.</div>';
-        }
-    } catch (e) {
-        setTimeout(loadData, 3000);
-    }
-}
-
-window.addEventListener('hashchange',()=>{S.open=-1;render()});
-loadData();
+window.addEventListener('hashchange', render);
+checkAuth();
 </script>
 </body>
 </html>
