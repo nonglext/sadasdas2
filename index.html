@@ -58,11 +58,24 @@ tailwind.config = {
 
 <!-- Основной Дашборд -->
 <div id="app-screen" class="hidden h-full flex flex-col">
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ (Поиск и Добавление) -->
     <nav class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-4 sm:px-6">
-        <div class="flex items-center gap-2">
-            <span class="text-sm font-bold tracking-widest text-tx uppercase">XIVIVIDE</span>
+        <div class="flex items-center gap-4 flex-1">
+            <span class="text-sm font-bold tracking-widest text-tx uppercase shrink-0">XIVIVIDE</span>
+            
+            <!-- Поле добавления цели -->
+            <div class="flex items-center gap-2 w-full max-w-md ml-4">
+                <div class="relative w-full">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <svg class="w-4 h-4 text-mut" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+                    <input type="text" id="new-target-id" placeholder="Введите Discord ID" class="h-9 w-full rounded-md border border-line bg-panel pl-9 pr-3 text-sm text-tx outline-none focus:border-accent">
+                </div>
+                <button id="add-target-btn" class="h-9 shrink-0 rounded-md bg-accent px-4 text-sm font-medium text-white hover:bg-accentHover transition">Добавить в отслеживание</button>
+            </div>
         </div>
-        <div class="flex items-center gap-3">
+        
+        <div class="flex items-center gap-3 shrink-0">
             <div class="flex items-center gap-2">
                 <span class="relative flex h-2 w-2">
                     <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75"></span>
@@ -76,30 +89,25 @@ tailwind.config = {
 
     <div class="mx-auto flex w-full max-w-[1300px] flex-1 items-start gap-6 p-4 sm:p-6 lg:flex-row flex-col">
         
-        <!-- Сайдбар -->
-        <aside class="flex w-full flex-col gap-6 lg:sticky lg:top-[80px] lg:w-[260px] shrink-0">
-            
-            <!-- Добавление цели -->
-            <div>
-                <h3 class="mb-2 text-xs font-semibold text-mut uppercase tracking-wider">Добавить цель</h3>
-                <div class="relative flex items-center">
-                    <input type="text" id="new-target-id" placeholder="Вставьте Discord ID" class="h-9 w-full rounded-md border border-line bg-panel pl-3 pr-16 text-xs text-tx outline-none focus:border-accent font-mono">
-                    <button id="add-target-btn" class="absolute right-1 top-1 bottom-1 rounded bg-tx px-3 text-[11px] font-semibold text-black hover:bg-zinc-300 transition">Add</button>
-                </div>
+        <!-- Сайдбар (Только Лента и Отслеживание + Подменю) -->
+        <aside class="flex w-full flex-col gap-4 lg:sticky lg:top-[80px] lg:w-[240px] shrink-0">
+            <!-- Главное меню -->
+            <nav class="flex flex-col gap-0.5" id="main-menu">
+                <a href="#feed" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors" id="nav-feed">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    Лента
+                </a>
+                <a href="#tracking" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors" id="nav-tracking">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    Отслеживание
+                </a>
+            </nav>
+
+            <!-- Подменю (Вкладки цели), появляется если выбрана цель -->
+            <div id="sub-menu-container" class="hidden border-t border-line pt-3 mt-1">
+                <h3 class="mb-2 px-2 text-[10px] font-semibold text-mut uppercase tracking-wider" id="selected-target-name">Вкладки</h3>
+                <nav class="flex flex-col gap-0.5" id="sub-menu"></nav>
             </div>
-
-            <!-- Список целей -->
-            <div class="flex flex-col">
-                <div class="mb-2 flex items-center justify-between">
-                    <h3 class="text-xs font-semibold text-mut uppercase tracking-wider">Активные</h3>
-                    <span id="target-count" class="text-xs font-mono text-mut"></span>
-                </div>
-                <div id="target-list" class="flex max-h-[300px] flex-col gap-0.5 overflow-y-auto pr-1"></div>
-            </div>
-
-            <!-- Навигация по вкладкам -->
-            <nav class="flex flex-col gap-0.5 border-t border-line pt-4" id="menu"></nav>
-
         </aside>
 
         <!-- Основной контент -->
@@ -110,7 +118,7 @@ tailwind.config = {
             </div>
             
             <div id="empty-state" class="hidden h-[400px] flex-col items-center justify-center border border-dashed border-line rounded-xl bg-panel/30">
-                <p class="text-sm text-mut">Выберите цель слева</p>
+                <p class="text-sm text-mut">Выберите цель из списка</p>
             </div>
 
             <div id="content" class="fade-in"></div>
@@ -121,6 +129,7 @@ tailwind.config = {
 <script>
 const ICONS = {
     feed: '<path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>',
+    tracking: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>',
     profile: '<path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>',
     server: '<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>',
     tag: '<path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>',
@@ -221,37 +230,16 @@ async function loadTargets() {
     try {
         const res = await fetch(`/api/my_targets/${USER_ID}`);
         userTargets = await res.json();
-        renderTargetList();
-    } catch (e) {}
-}
-
-function renderTargetList() {
-    const list = document.getElementById('target-list');
-    document.getElementById('target-count').textContent = userTargets.length || '';
-
-    if (userTargets.length === 0) {
-        list.innerHTML = `<div class="text-xs text-mut py-2">Нет целей</div>`;
-        return;
-    }
-
-    list.innerHTML = userTargets.map(t => {
-        const isSelected = CURRENT_TARGET === t.target_id;
-        const displayName = DATA.targets?.[t.target_id]?.user?.display || t.target_name || t.target_id;
         
-        return `
-        <div class="group flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors ${isSelected ? 'bg-line' : 'hover:bg-line/50'}" onclick="selectTarget('${t.target_id}')">
-            <span class="truncate text-sm ${isSelected ? 'text-tx font-medium' : 'text-mut'}">${displayName}</span>
-            <button class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-mut opacity-0 hover:bg-danger/20 hover:text-danger group-hover:opacity-100" onclick="event.stopPropagation(); removeTarget('${t.target_id}')">
-                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-        </div>`;
-    }).join('');
-}
-
-function selectTarget(id) {
-    CURRENT_TARGET = id;
-    renderTargetList();
-    render();
+        // Если мы на вкладке профиля, но цель не выбрана, берем первую
+        const hash = location.hash.slice(1) || 'feed';
+        if (['profile', 'servers', 'nicks', 'media', 'friends', 'events'].includes(hash)) {
+            if (!CURRENT_TARGET && userTargets.length > 0) {
+                CURRENT_TARGET = userTargets[0].target_id;
+            }
+        }
+        render();
+    } catch (e) {}
 }
 
 document.getElementById('add-target-btn').addEventListener('click', async () => {
@@ -271,7 +259,8 @@ document.getElementById('add-target-btn').addEventListener('click', async () => 
         if (res.ok) {
             input.value = '';
             await loadTargets();
-            selectTarget(tid);
+            CURRENT_TARGET = tid;
+            window.location.hash = 'profile';
         } else {
             const err = await res.json();
             alert(err.detail);
@@ -285,14 +274,17 @@ window.removeTarget = async (tid) => {
         await fetch(`/api/remove_target/${USER_ID}/${tid}`, { method: 'DELETE' });
         if (CURRENT_TARGET === tid) CURRENT_TARGET = null;
         await loadTargets();
-        if (userTargets.length > 0 && !CURRENT_TARGET) selectTarget(userTargets[0].target_id);
-        else render();
+        window.location.hash = 'tracking';
     } catch (e) {}
 };
 
+function selectTarget(id) {
+    CURRENT_TARGET = id;
+    window.location.hash = 'profile';
+}
+
 // ============ ОТОБРАЖЕНИЕ ============
-const TABS = [
-    { id: 'feed', label: 'Лента', icon: 'feed' },
+const SUB_TABS = [
     { id: 'profile', label: 'Профиль', icon: 'profile' },
     { id: 'servers', label: 'Серверы', icon: 'server' },
     { id: 'nicks', label: 'Никнеймы', icon: 'tag' },
@@ -302,67 +294,89 @@ const TABS = [
 ];
 
 function render() {
-    const hash = (location.hash.slice(1) || 'feed'); // По умолчанию открываем ленту
-    const activeTab = TABS.find(t => t.id === hash) ? hash : 'feed';
+    let hash = location.hash.slice(1) || 'feed';
+    
+    // Защита от пустого профиля: если пытаемся открыть вкладку цели без самой цели
+    if (['profile', 'servers', 'nicks', 'media', 'friends', 'events'].includes(hash) && !CURRENT_TARGET) {
+        if (userTargets.length > 0) {
+            CURRENT_TARGET = userTargets[0].target_id;
+        } else {
+            hash = 'tracking';
+            window.location.hash = 'tracking';
+        }
+    }
 
-    document.getElementById('menu').innerHTML = TABS.map(t => {
-        const isActive = t.id === activeTab;
-        return `<a href="#${t.id}" class="flex h-8 items-center gap-2.5 rounded px-2 text-sm transition-colors ${isActive ? 'text-tx font-medium bg-line/30' : 'text-mut hover:text-tx hover:bg-line/30'}">
-            ${icon(t.icon, `h-3.5 w-3.5 ${isActive ? 'text-accent' : 'text-mut'}`)} ${t.label}
-        </a>`;
-    }).join('');
+    // Обновляем верхнее меню
+    document.getElementById('nav-feed').className = `flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors ${hash === 'feed' ? 'bg-line text-tx' : 'text-mut hover:bg-line/50 hover:text-tx'}`;
+    document.getElementById('nav-tracking').className = `flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors ${hash === 'tracking' ? 'bg-line text-tx' : 'text-mut hover:bg-line/50 hover:text-tx'}`;
+
+    // Отображение подменю
+    const subMenuContainer = document.getElementById('sub-menu-container');
+    if (['profile', 'servers', 'nicks', 'media', 'friends', 'events'].includes(hash) && CURRENT_TARGET) {
+        subMenuContainer.classList.remove('hidden');
+        
+        const targetName = DATA.targets?.[CURRENT_TARGET]?.user?.display || userTargets.find(t => t.target_id === CURRENT_TARGET)?.target_name || CURRENT_TARGET;
+        document.getElementById('selected-target-name').textContent = targetName;
+
+        document.getElementById('sub-menu').innerHTML = SUB_TABS.map(t => {
+            const isActive = t.id === hash;
+            return `<a href="#${t.id}" class="flex h-8 items-center gap-2.5 rounded px-2 text-sm transition-colors ${isActive ? 'text-tx font-medium bg-line/30' : 'text-mut hover:text-tx hover:bg-line/30'}">
+                ${icon(t.icon, `h-3.5 w-3.5 ${isActive ? 'text-accent' : 'text-mut'}`)} ${t.label}
+            </a>`;
+        }).join('');
+    } else {
+        subMenuContainer.classList.add('hidden');
+    }
 
     const loader = document.getElementById('loader');
     const emptyState = document.getElementById('empty-state');
     const content = document.getElementById('content');
 
-    // Лента работает и без выбранной цели, остальные вкладки требуют цель
-    if (activeTab !== 'feed' && !CURRENT_TARGET) {
-        loader.style.display = 'none';
-        emptyState.style.display = 'flex';
-        content.innerHTML = '';
-        return;
-    }
-
-    emptyState.style.display = 'none';
     loader.style.display = 'none';
+    emptyState.style.display = 'none';
+    content.innerHTML = '';
 
-    if (activeTab === 'feed') {
-        content.innerHTML = renderTab('feed', {});
+    if (hash === 'feed') {
+        content.innerHTML = renderFeed();
         return;
     }
 
+    if (hash === 'tracking') {
+        content.innerHTML = renderTrackingList();
+        return;
+    }
+
+    // Если это вкладка цели
     const targetData = DATA.targets?.[CURRENT_TARGET];
     if (!targetData) {
         content.innerHTML = `<div class="flex h-[400px] flex-col items-center justify-center text-mut">
             <svg class="mb-3 h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-            <p class="text-sm">Ожидание данных...</p>
+            <p class="text-sm">Ожидание данных от бота...</p>
         </div>`;
         return;
     }
 
-    content.innerHTML = renderTab(activeTab, targetData);
+    content.innerHTML = renderSubTab(hash, targetData);
 }
 
-function renderTab(tabId, data) {
-    switch (tabId) {
-        case 'feed': return renderFeed();
-        case 'profile': return renderProfile(data);
-        case 'servers': return renderServers(data);
-        case 'nicks': return renderNicks(data);
-        case 'media': return renderMedia(data);
-        case 'friends': return renderFriends(data);
-        case 'events': return renderEvents(data);
-        default: return '';
-    }
-}
-
+// --- РЕНДЕР ЛЕНТЫ ---
 function renderFeed() {
-    const avatars = DATA.global_feed || [];
-    if (avatars.length === 0) return renderEmpty('Лента пока пуста. Смените аватарку на сервере, чтобы она появилась здесь.');
+    const rawFeed = DATA.global_feed || [];
+    const uniqueFeed = [];
+    const seenUsers = new Set();
+    
+    for (const item of rawFeed) {
+        const userKey = item.user_id || item.user;
+        if (!seenUsers.has(userKey)) {
+            seenUsers.add(userKey);
+            uniqueFeed.push(item);
+        }
+    }
+
+    if (uniqueFeed.length === 0) return renderEmpty('Лента пока пуста. Смените аватарку на сервере, чтобы она появилась здесь.');
 
     return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        ${avatars.map(f => `
+        ${uniqueFeed.map(f => `
         <div class="bg-panel border border-line rounded-xl overflow-hidden flex flex-col group">
             <div class="p-2.5 flex items-center gap-2 border-b border-line bg-[#141416]">
                 <img src="${f.url}" class="w-6 h-6 rounded-full object-cover bg-bg">
@@ -377,6 +391,52 @@ function renderFeed() {
             </div>
         </div>`).join('')}
     </div>`;
+}
+
+// --- РЕНДЕР СПИСКА ОТСЛЕЖИВАНИЯ (Как на скрине) ---
+function renderTrackingList() {
+    if (userTargets.length === 0) return renderEmpty('Вы пока никого не отслеживаете.');
+    
+    return `<div class="flex flex-col gap-3">
+        ${userTargets.map(t => {
+            const userData = DATA.targets?.[t.target_id]?.user || {};
+            const displayName = userData.display || t.target_name || t.target_id;
+            const avatar = userData.avatar_url || avatarPlaceholder(displayName);
+            const isOnline = DATA.targets?.[t.target_id]?.sessions?.some(s => s.dur === 'В сети');
+            
+            return `<div class="flex items-center justify-between p-3 rounded-xl border border-line bg-panel hover:border-accent/40 transition cursor-pointer" onclick="selectTarget('${t.target_id}')">
+                <div class="flex items-center gap-4">
+                    <div class="relative">
+                        <img src="${avatar}" class="w-12 h-12 rounded-full object-cover">
+                        ${isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-success border-2 border-panel"></span>' : ''}
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-semibold text-tx">${displayName}</span>
+                        <span class="text-xs text-mut font-mono">${t.target_id}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-xs ${isOnline ? 'text-success' : 'text-mut'}">${isOnline ? 'В голосовом' : 'Не в голосовом'}</span>
+                    <button onclick="event.stopPropagation(); removeTarget('${t.target_id}')" class="p-2 text-mut hover:text-danger hover:bg-danger/10 rounded-lg transition">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                </div>
+            </div>`;
+        }).join('')}
+    </div>`;
+}
+
+// --- РЕНДЕР ВКЛАДОК ЦЕЛИ ---
+function renderSubTab(tabId, data) {
+    switch (tabId) {
+        case 'profile': return renderProfile(data);
+        case 'servers': return renderServers(data);
+        case 'nicks': return renderNicks(data);
+        case 'media': return renderMedia(data);
+        case 'friends': return renderFriends(data);
+        case 'events': return renderEvents(data);
+        default: return '';
+    }
 }
 
 function renderProfile(data) {
@@ -525,10 +585,7 @@ async function loadData() {
     try {
         const res = await fetch('/api/data');
         DATA = await res.json();
-        
-        const hash = (location.hash.slice(1) || 'feed');
-        if (hash === 'feed' || CURRENT_TARGET) render();
-        renderTargetList();
+        render();
     } catch (e) {}
 }
 
