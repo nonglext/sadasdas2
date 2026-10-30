@@ -1,30 +1,20 @@
 # language: Python, file: main.py, target: Render Web Service
-# pip install fastapi uvicorn
+import os
+import asyncpg
+import hashlib
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import uvicorn, sqlite3, hashlib, os
+from contextlib import asynccontextmanager
 
-app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# --- НАСТРОЙКИ БАЗЫ ДАННЫХ ---
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-STORE_DATA = {"targets": {}} # Сюда бот шлет данные
+# Данные бота (в оперативной памяти)
+STORE_DATA = {"targets": {}, "global_feed": []}
 
-def init_db():
-    conn = sqlite3.connect('tracker.db')
-    c = conn.cursor()
-    # Таблица пользователей
-    c.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)''')
-    # Таблица целей (привязка к пользователю)
-    c.execute('''CREATE TABLE IF NOT EXISTS targets (id INTEGER PRIMARY KEY, user_id INTEGER, target_id TEXT UNIQUE, target_name TEXT)''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-def hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
-
+# --- МОДЕЛИ ДАННЫХ ---
 class AuthData(BaseModel):
     username: str
     password: str
@@ -33,76 +23,91 @@ class TargetData(BaseModel):
     target_id: str
     target_name: str
 
+def hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
+
+# --- ПОДКЛЮЧЕНИЕ К БАЗЕ ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # При старте создаем пул соединений и таблицы
+    app.state.pool = await asyncpg.create_pool(DATABASE_URL)
+    async with app.state.pool.acquire() as conn:
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE,
+                password TEXT
+            );
+            CREATE TABLE IF NOT EXISTS targets (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                target_id TEXT UNIQUE,
+                target_name TEXT
+            );
+        ''')
+    yield
+    # При выключении закрываем пул
+    await app.state.pool.close()
+
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
 @app.get("/", response_class=HTMLResponse)
 async def index(): return FileResponse("index.html")
 
 # --- АВТОРИЗАЦИЯ ---
 @app.post("/api/register")
-async def register(data: AuthData):
-    conn = sqlite3.connect('tracker.db')
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (data.username, hash_pw(data.password)))
-        conn.commit()
-        user_id = c.lastrowid
-        return {"status": "ok", "user_id": user_id, "username": data.username}
-    except sqlite3.IntegrityError:
-        raise HTTPException(400, "Пользователь уже существует")
-    finally:
-        conn.close()
+async def register(data: AuthData, request: Request):
+    async with request.app.state.pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow(
+                "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username",
+                data.username, hash_pw(data.password)
+            )
+            return {"status": "ok", "user_id": row["id"], "username": row["username"]}
+        except asyncpg.UniqueViolationError:
+            raise HTTPException(400, "Пользователь уже существует")
 
 @app.post("/api/login")
-async def login(data: AuthData):
-    conn = sqlite3.connect('tracker.db')
-    c = conn.cursor()
-    c.execute("SELECT id, username FROM users WHERE username=? AND password=?", (data.username, hash_pw(data.password)))
-    row = c.fetchone()
-    conn.close()
-    if row: return {"status": "ok", "user_id": row[0], "username": row[1]}
-    raise HTTPException(401, "Неверный логин или пароль")
+async def login(data: AuthData, request: Request):
+    async with request.app.state.pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, username FROM users WHERE username=$1 AND password=$2",
+            data.username, hash_pw(data.password)
+        )
+        if row: return {"status": "ok", "user_id": row["id"], "username": row["username"]}
+        raise HTTPException(401, "Неверный логин или пароль")
 
 # --- УПРАВЛЕНИЕ ЦЕЛЯМИ ---
 @app.get("/api/my_targets/{user_id}")
-async def get_user_targets(user_id: int):
-    conn = sqlite3.connect('tracker.db')
-    c = conn.cursor()
-    c.execute("SELECT target_id, target_name FROM targets WHERE user_id=?", (user_id,))
-    rows = c.fetchall()
-    conn.close()
-    return [{"target_id": r[0], "target_name": r[1]} for r in rows]
+async def get_user_targets(user_id: int, request: Request):
+    async with request.app.state.pool.acquire() as conn:
+        rows = await conn.fetch("SELECT target_id, target_name FROM targets WHERE user_id=$1", user_id)
+        return [{"target_id": r["target_id"], "target_name": r["target_name"]} for r in rows]
 
 @app.post("/api/add_target/{user_id}")
-async def add_target(user_id: int, data: TargetData):
-    conn = sqlite3.connect('tracker.db')
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO targets (user_id, target_id, target_name) VALUES (?, ?, ?)", (user_id, data.target_id, data.target_name))
-        conn.commit()
-        return {"status": "ok"}
-    except sqlite3.IntegrityError:
-        raise HTTPException(400, "Этот ID уже отслеживается")
-    finally:
-        conn.close()
+async def add_target(user_id: int, data: TargetData, request: Request):
+    async with request.app.state.pool.acquire() as conn:
+        try:
+            await conn.execute(
+                "INSERT INTO targets (user_id, target_id, target_name) VALUES ($1, $2, $3)",
+                user_id, data.target_id, data.target_name
+            )
+            return {"status": "ok"}
+        except asyncpg.UniqueViolationError:
+            raise HTTPException(400, "Этот ID уже отслеживается")
 
 @app.delete("/api/remove_target/{user_id}/{target_id}")
-async def remove_target(user_id: int, target_id: str):
-    conn = sqlite3.connect('tracker.db')
-    c = conn.cursor()
-    c.execute("DELETE FROM targets WHERE user_id=? AND target_id=?", (user_id, target_id))
-    conn.commit()
-    conn.close()
-    return {"status": "ok"}
+async def remove_target(user_id: int, target_id: str, request: Request):
+    async with request.app.state.pool.acquire() as conn:
+        await conn.execute("DELETE FROM targets WHERE user_id=$1 AND target_id=$2", user_id, target_id)
+        return {"status": "ok"}
 
 # --- ДЛЯ БОТА ---
 @app.get("/api/bot_targets")
-async def get_all_targets():
-    """Бот забирает список ВСЕХ ID, которые нужно мониторить"""
-    conn = sqlite3.connect('tracker.db')
-    c = conn.cursor()
-    c.execute("SELECT target_id FROM targets")
-    rows = c.fetchall()
-    conn.close()
-    return [r[0] for r in rows]
+async def get_all_targets(request: Request):
+    async with request.app.state.pool.acquire() as conn:
+        rows = await conn.fetch("SELECT target_id FROM targets")
+        return [r["target_id"] for r in rows]
 
 @app.post("/api/update")
 async def update_data(request: Request):
@@ -115,5 +120,3 @@ async def get_data(): return STORE_DATA
 
 @app.get("/api/ping")
 async def ping(): return {"status": "alive"}
-
-if __name__ == "__main__": uvicorn.run(app, host="0.0.0.0", port=10000)
