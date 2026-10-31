@@ -205,7 +205,7 @@ let DATA = {}, CURRENT_TARGET = null, USER_ID = null, userTargets = [], isRegist
 const TABS = ['profile', 'servers', 'nicks', 'media', 'friends', 'events'];
 
 /* ---------- UI helpers ---------- */
-let toastT;
+let toastT, fastT, fastN = 0;
 function toast(msg, bad) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.style.color = bad ? 'var(--bad)' : 'var(--tx)';
@@ -333,6 +333,7 @@ document.getElementById('add-target-btn').addEventListener('click', async () => 
         if (res.ok) {
             input.value = '';
             await loadTargets();
+            fastN = 0; loadData();
             CURRENT_TARGET = tid;
             window.location.hash = 'profile';
         } else { const err = await res.json(); toast(err.detail || 'Ошибка', true); }
@@ -570,7 +571,15 @@ function renderEmpty(msg, hint) {
 
 async function loadData() {
     if (!USER_ID) return;
-    try { const res = await api('/api/data'); if (res.ok) { DATA = await res.json(); render(); } } catch (e) {}
+    try {
+        const res = await api('/api/data');
+        if (res.ok) { DATA = await res.json(); render(); }
+        // если у какой-то цели ещё нет данных от бота — проверяем чаще, пока не появятся
+        clearTimeout(fastT);
+        const missing = userTargets.some(t => !DATA.targets?.[t.target_id]?.user || DATA.targets[t.target_id].user.username === 'unknown');
+        if (!missing) fastN = 0;
+        else if (fastN++ < 20) fastT = setTimeout(loadData, 3000);
+    } catch (e) {}
 }
 
 window.addEventListener('hashchange', render);
