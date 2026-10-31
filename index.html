@@ -20,13 +20,16 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
 :focus-visible{outline:2px solid var(--tx);outline-offset:2px}
 .disp{font-weight:600;letter-spacing:-.01em}
 .t-mut{color:var(--mut)}.t-ok{color:var(--ok)}.t-bad{color:var(--bad)}
-.sf{background:#111113;border:1px solid var(--hair);border-radius:10px}
-.list{background:none;border:0;border-top:1px solid var(--hair);border-radius:0}
-.row{display:flex;align-items:center;gap:14px;padding:14px 4px;transition:background .12s;border-bottom:1px solid var(--hair)}
+.sf{background:#0e0e10;border:1px solid var(--hair);border-radius:14px}
+#app-screen{position:relative;z-index:10}
+.wm{position:fixed;z-index:0;pointer-events:none;left:50%;top:50%;width:min(78vmin,720px);height:min(78vmin,720px);transform:translate(-50%,-50%);color:#fff;opacity:.045}
+.list{background:#0e0e10;border:1px solid var(--hair);border-radius:14px;overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:14px 18px;transition:background .12s;border-bottom:1px solid var(--hair)}
+.row:last-child{border-bottom:0}
 .row.click{cursor:pointer}.row.click:hover{background:rgba(255,255,255,.025)}
-.field{height:40px;width:100%;border-radius:8px;border:1px solid var(--hair);background:transparent;padding:0 12px;font-size:14px;color:var(--tx);outline:none;transition:border-color .12s}
+.field{height:40px;width:100%;border-radius:10px;border:1px solid var(--hair);background:transparent;padding:0 12px;font-size:14px;color:var(--tx);outline:none;transition:border-color .12s}
 .field::placeholder{color:#58585e}.field:focus{border-color:rgba(255,255,255,.4)}.field.err{border-color:var(--bad)}
-.btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 16px;border-radius:8px;background:var(--tx);color:#0b0b0c;font-size:14px;font-weight:500;transition:opacity .12s;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 16px;border-radius:10px;background:var(--tx);color:#0b0b0c;font-size:14px;font-weight:500;transition:opacity .12s;flex-shrink:0}
 .btn:hover{opacity:.88}.btn:disabled{opacity:.5}
 .btn.ghost{background:transparent;color:var(--tx);border:1px solid var(--hair2)}.btn.ghost:hover{background:rgba(255,255,255,.05);opacity:1}
 .btn.bad{background:var(--bad);color:#190606}
@@ -35,12 +38,12 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
 .addbox input{flex:1;min-width:0;height:100%;background:transparent;border:0;outline:0;padding:0 10px;font-size:14px;color:var(--tx)}
 .addbox input:focus-visible{outline:0}.addbox input::placeholder{color:#58585e}.addbox input.err{color:var(--bad)}
 .addbox .btn{height:100%;border-radius:6px;padding:0 12px;font-size:13px}
-.na{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;font-size:14px;color:var(--mut);white-space:nowrap;transition:color .12s,background .12s}
+.na{display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;border-radius:10px;font-size:14px;color:var(--mut);white-space:nowrap;transition:color .12s,background .12s}
 .na:hover{color:var(--tx)}.na.on{color:var(--tx);background:rgba(255,255,255,.06)}
 .ph{margin-bottom:20px}.ph h1{font-weight:600;font-size:20px;letter-spacing:-.015em}.ph p{margin-top:4px;font-size:14px;color:var(--mut)}
 .ava{border-radius:999px;object-fit:cover;background:#18181b;flex-shrink:0}
 .live{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--ok);flex-shrink:0}
-.tile{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;cursor:pointer;background:#151517}
+.tile{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;cursor:pointer;background:#151517}
 .tile>img.pic{width:100%;height:100%;object-fit:cover;transition:opacity .15s}
 .tile:hover>img.pic{opacity:.82}
 .cap{position:absolute;inset:auto 0 0 0;display:flex;align-items:center;gap:8px;padding:24px 10px 9px;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);font-size:12px}
@@ -62,6 +65,8 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
   <defs><mask id="mk" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="#fff"/><path d="M80 20L20 80" stroke="#000" stroke-width="24" stroke-linecap="round"/></mask></defs>
   <symbol id="xm" viewBox="0 0 100 100"><path d="M20 20L80 80" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round" mask="url(#mk)"/><path d="M80 20L20 80" fill="none" stroke="currentColor" opacity=".45" stroke-width="11" stroke-linecap="round"/></symbol>
 </svg>
+
+<svg class="wm" aria-hidden="true"><use href="#xm"/></svg>
 
 <div id="image-modal" class="ov hidden cursor-zoom-out" onclick="closeModal()">
     <img id="modal-img" src="" alt="" class="max-w-full max-h-[90vh] rounded-2xl object-contain" style="box-shadow:0 30px 80px rgba(0,0,0,.7)" onclick="event.stopPropagation()">
@@ -128,12 +133,12 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
     </header>
 
     <div class="mx-auto flex w-full max-w-[1300px] flex-1 flex-col items-start gap-6 p-4 sm:p-6 lg:flex-row lg:gap-10">
-        <aside class="flex w-full shrink-0 flex-col gap-4 lg:sticky lg:top-[92px] lg:w-[232px]">
+        <aside class="sf flex w-full shrink-0 flex-col gap-4 p-3 lg:sticky lg:top-[92px] lg:w-[232px]">
             <nav class="flex gap-1 overflow-x-auto lg:flex-col">
                 <a href="#feed" class="na" id="nav-feed"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" id="ni-feed"></svg>Лента</a>
                 <a href="#tracking" class="na" id="nav-tracking"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" id="ni-tracking"></svg>Отслеживание</a>
             </nav>
-            <div id="sub-menu-container" class="hidden border-t pt-4 lg:mt-1" style="border-color:var(--hair)">
+            <div id="sub-menu-container" class="hidden border-t pt-4" style="border-color:var(--hair)">
                 <div class="mb-3 flex items-center gap-3 px-1">
                     <img id="selected-target-ava" src="" alt="" class="ava h-9 w-9">
                     <div class="min-w-0"><div class="truncate text-sm font-semibold" id="selected-target-name"></div><div class="text-xs t-mut">Профиль цели</div></div>
@@ -427,7 +432,7 @@ function renderProfile(data) {
     const fact = (k, v) => `<div class="row justify-between"><span class="text-sm t-mut">${k}</span><span class="text-sm font-medium text-right break-all">${v}</span></div>`;
 
     return `
-    <section class="flex flex-col items-center gap-5 pb-6 text-center sm:flex-row sm:text-left">
+    <section class="sf flex flex-col items-center gap-5 p-6 text-center sm:flex-row sm:text-left">
         <div class="relative shrink-0">
             <img src="${esc(u.avatar_url || ph)}" class="h-24 w-24 cursor-zoom-in rounded-xl object-cover" data-open="${esc(u.avatar_url)}" onerror="this.src='${ph}'" alt="">
             ${on ? '<span class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full" style="background:var(--bg)"><i class="live"></i></span>' : ''}
@@ -438,13 +443,13 @@ function renderProfile(data) {
             <p class="mt-3 inline-flex items-center gap-2 text-sm ${on ? 't-ok' : 't-mut'}">${on ? '<i class="live"></i>В голосовом канале сейчас' : 'Сейчас не в голосовом'}</p>
         </div>
     </section>
-    <div class="grid gap-6 lg:grid-cols-5">
+    <div class="mt-4 grid gap-4 lg:grid-cols-5">
         <div class="list lg:col-span-3">
             ${fact('Discord ID', `<span class="inline-flex items-center gap-2"><span class="font-mono text-xs">${esc(u.id)}</span><button data-copy="${esc(u.id)}" aria-label="Скопировать" class="rounded-md p-1 t-mut transition hover:bg-white/10 hover:text-white">${icon('copy', 'h-3.5 w-3.5')}</button></span>`)}
             ${fact('Регистрация', formatDate(u.reg))}
             ${fact('Время в войсе', esc(u.voice || '0ч 0м'))}
         </div>
-        <div class="sf flex items-center gap-4 p-4 lg:col-span-2">
+        <div class="sf flex items-center gap-4 p-5 lg:col-span-2">
             ${srvLogo(si, l.server, 'h-12 w-12')}
             <div class="min-w-0 flex-1">
                 <div class="text-xs t-mut">Последняя сессия</div>
@@ -532,7 +537,7 @@ function renderEvents(data) {
 }
 
 function renderEmpty(msg, hint) {
-    return `<div class="flex min-h-[240px] flex-col items-center justify-center gap-1.5 border-t px-6 text-center" style="border-color:var(--hair)">
+    return `<div class="sf flex min-h-[240px] flex-col items-center justify-center gap-1.5 px-6 text-center">
         <p class="text-sm font-medium">${msg}</p>
         ${hint ? `<p class="max-w-sm text-sm t-mut">${hint}</p>` : ''}
     </div>`;
