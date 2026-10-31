@@ -84,7 +84,6 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
 </div>
 <div id="toast" role="status"></div>
 
-<!-- Авторизация -->
 <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto hidden content-wrapper">
     <div class="w-full max-w-[380px] relative z-10">
         <svg class="mx-auto h-10 w-10 rv" style="color:var(--tx)"><use href="#xm"/></svg>
@@ -102,7 +101,6 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
     </div>
 </div>
 
-<!-- Дашборд -->
 <div id="app-screen" class="hidden h-full flex flex-col content-wrapper">
     <header class="sticky top-0 z-40 shrink-0 border-b" style="border-color:var(--hair);background:var(--bg);padding-top:env(safe-area-inset-top,0px)">
         <div class="mx-auto flex max-w-[1300px] flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-6">
@@ -381,23 +379,12 @@ function render() {
 }
 
 function renderFeed() {
-    const rawFeed = DATA.global_feed || [];
-    const uniqueFeed = [];
-    const seenUsers = new Set();
+    const feed = DATA.global_feed || [];
     
-    // ТЕПЕРЬ В ЛЕНТЕ ТОЛЬКО 1 САМАЯ СВЕЖАЯ АВАТАРКА НА ЧЕЛОВЕКА
-    for (const item of rawFeed) {
-        const userKey = item.user_id || item.user;
-        if (!seenUsers.has(userKey)) {
-            seenUsers.add(userKey);
-            uniqueFeed.push(item);
-        }
-    }
-    
-    if (!uniqueFeed.length) return head('Лента', 'Новые аватарки отслеживаемых людей') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из ваших целей их сменит.');
+    if (!feed.length) return head('Лента', 'Новые аватарки отслеживаемых людей') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из ваших целей их сменит.');
     
     return head('Лента', 'Новые аватарки отслеживаемых людей') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
-        ${uniqueFeed.map(f => `
+        ${feed.map(f => `
         <div class="tile" data-open="${esc(f.url)}">
             <img class="pic" src="${esc(f.url)}" alt="" loading="lazy" onerror="this.src='${avatarPlaceholder(f.user)}'">
             <div class="cap">
