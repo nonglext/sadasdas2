@@ -140,7 +140,7 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
             </nav>
             <div id="sub-menu-container" class="hidden border-t pt-4" style="border-color:var(--hair)">
                 <div class="mb-3 flex items-center gap-3 px-1">
-                    <img id="selected-target-ava" src="" alt="" class="ava h-9 w-9">
+                    <img id="selected-target-ava" src="" alt="" class="ava h-9 w-9" onerror="this.src='${avatarPlaceholder('?')}'">
                     <div class="min-w-0"><div class="truncate text-sm font-semibold" id="selected-target-name"></div><div class="text-xs t-mut">Профиль цели</div></div>
                 </div>
                 <nav class="flex gap-1 overflow-x-auto lg:flex-col" id="sub-menu"></nav>
@@ -381,13 +381,30 @@ function render() {
 }
 
 function renderFeed() {
-    const feed = DATA.global_feed || [];
+    const rawFeed = DATA.global_feed || [];
+    const feed = [];
+    
+    // ФИЛЬТР ДУБЛЕЙ: удаляем подряд идущие одинаковые аватарки
+    for (const item of rawFeed) {
+        if (feed.length > 0) {
+            const last = feed[feed.length - 1];
+            if (last.user_id === item.user_id && last.url === item.url) {
+                continue;
+            }
+        }
+        feed.push(item);
+    }
+    
     if (!feed.length) return head('Лента', 'Новые аватарки отслеживаемых людей') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из ваших целей их сменит.');
+    
     return head('Лента', 'Новые аватарки отслеживаемых людей') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
         ${feed.map(f => `
         <div class="tile" data-open="${esc(f.url)}">
-            <img class="pic" src="${esc(f.url)}" alt="" loading="lazy">
-            <div class="cap"><img class="ava h-6 w-6" src="${esc(f.url)}" alt=""><b>${esc(f.user)}</b><span>${formatDate(f.time)}</span></div>
+            <img class="pic" src="${esc(f.url)}" alt="" loading="lazy" onerror="this.src='${avatarPlaceholder(f.user)}'">
+            <div class="cap">
+                <img class="ava h-6 w-6" src="${esc(f.url)}" alt="" onerror="this.src='${avatarPlaceholder(f.user)}'">
+                <b>${esc(f.user)}</b><span>${formatDate(f.time)}</span>
+            </div>
         </div>`).join('')}
     </div>`;
 }
@@ -402,7 +419,7 @@ function renderTrackingList() {
             const name = u.display || t.target_name || t.target_id;
             const on = isOnline(t.target_id);
             return `<div class="row click" data-select="${esc(t.target_id)}">
-                <img src="${esc(u.avatar_url || avatarPlaceholder(name))}" class="ava h-11 w-11" alt="">
+                <img src="${esc(u.avatar_url || avatarPlaceholder(name))}" class="ava h-11 w-11" alt="" onerror="this.src='${avatarPlaceholder(name)}'">
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-sm font-semibold">${esc(name)}</div>
                     <div class="mt-0.5 font-mono text-[11px] t-mut">${esc(t.target_id)}</div>
