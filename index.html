@@ -187,7 +187,11 @@ const formatDate = (iso) => {
     const p = (n) => String(n).padStart(2, '0');
     return `${p(d.getDate())}.${p(d.getMonth() + 1)} в ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
-const formatMinutes = (m) => { const h = Math.floor(m / 60), r = m % 60; return h > 0 ? `${h}ч ${r}м` : `${r}м`; };
+const formatMinutes = (m) => {
+    const totalMins = Math.round(m);
+    const h = Math.floor(totalMins / 60), r = totalMins % 60; 
+    return h > 0 ? `${h}ч ${r}м` : `${r}м`; 
+};
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return (m > 10 && m < 20) ? c : k === 1 ? a : (k > 1 && k < 5) ? b : c; };
 
 let DATA = {}, CURRENT_TARGET = null, USER_ID = null, userTargets = [], isRegistering = false, pollId = null;
