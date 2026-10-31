@@ -30,9 +30,31 @@ tailwind.config = {
     ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
     .fade-in { animation: fadeIn 0.15s ease-out forwards; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    /* АНИМИРОВАННЫЙ ФОН С БУКВОЙ X */
+    .bg-x-pattern {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 150vw;
+        height: 150vh;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.03;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 60H0z' fill='%236366f1' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E");
+        background-size: 100px 100px;
+        animation: slowSpin 60s linear infinite;
+    }
+    @keyframes slowSpin {
+        from { transform: translate(-50%, -50%) rotate(0deg); }
+        to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    .content-wrapper { position: relative; z-index: 10; }
 </style>
 </head>
-<body class="h-full bg-bg text-tx font-sans antialiased selection:bg-accent/30 selection:text-white">
+<body class="h-full bg-bg text-tx font-sans antialiased selection:bg-accent/30 selection:text-white relative">
+<div class="bg-x-pattern"></div>
 
 <!-- Модальное окно для аватарок -->
 <div id="image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" onclick="this.classList.add('hidden'); this.classList.remove('flex');">
@@ -40,8 +62,8 @@ tailwind.config = {
 </div>
 
 <!-- Экран Авторизации -->
-<div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4 hidden">
-    <div class="w-full max-w-[360px]">
+<div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-bg/95 p-4 hidden">
+    <div class="w-full max-w-[360px] relative z-10">
         <h2 id="auth-title" class="mb-6 text-xl font-semibold text-center">Вход в систему</h2>
         <form id="auth-form" class="flex flex-col gap-3">
             <input type="text" id="auth-user" placeholder="Логин" class="h-10 w-full rounded-md border border-line bg-panel px-3 text-sm text-tx outline-none focus:border-accent" required>
@@ -57,9 +79,8 @@ tailwind.config = {
 </div>
 
 <!-- Основной Дашборд -->
-<div id="app-screen" class="hidden h-full flex flex-col">
-    <!-- Шапка -->
-    <nav class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-4 sm:px-6">
+<div id="app-screen" class="hidden h-full flex flex-col content-wrapper">
+    <nav class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg/80 backdrop-blur-md px-4 sm:px-6">
         <div class="flex items-center gap-4">
             <span class="text-sm font-bold tracking-widest text-tx uppercase shrink-0">XIVIVIDE</span>
         </div>
@@ -352,21 +373,13 @@ function render() {
 }
 
 function renderFeed() {
-    const rawFeed = DATA.global_feed || [];
-    const uniqueFeed = [];
-    const seenUsers = new Set();
-    for (const item of rawFeed) {
-        const userKey = item.user_id || item.user;
-        if (!seenUsers.has(userKey)) {
-            seenUsers.add(userKey);
-            uniqueFeed.push(item);
-        }
-    }
-    if (uniqueFeed.length === 0) return renderEmpty('Лента пока пуста.');
+    // АБСОЛЮТНО БЕЗ ФИЛЬТРОВ И ОГРАНИЧЕНИЙ
+    const feed = DATA.global_feed || [];
+    if (feed.length === 0) return renderEmpty('Лента пока пуста.');
     return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        ${uniqueFeed.map(f => `
-        <div class="bg-panel border border-line rounded-xl overflow-hidden flex flex-col group">
-            <div class="p-2.5 flex items-center gap-2 border-b border-line bg-[#141416]">
+        ${feed.map(f => `
+        <div class="bg-panel/80 backdrop-blur-sm border border-line rounded-xl overflow-hidden flex flex-col group transition-transform hover:-translate-y-1 hover:border-accent/50">
+            <div class="p-2.5 flex items-center gap-2 border-b border-line bg-[#141416]/90">
                 <img src="${f.url}" class="w-6 h-6 rounded-full object-cover bg-bg">
                 <span class="text-xs font-semibold truncate text-tx">${f.user}</span>
             </div>
@@ -390,7 +403,7 @@ function renderTrackingList() {
             const avatar = userData.avatar_url || avatarPlaceholder(displayName);
             const isOnline = DATA.targets?.[t.target_id]?.sessions?.some(s => s.dur === 'В сети');
             
-            return `<div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22] border border-transparent hover:border-line transition cursor-pointer" onclick="selectTarget('${t.target_id}')">
+            return `<div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]/80 backdrop-blur-sm border border-transparent hover:border-line transition cursor-pointer" onclick="selectTarget('${t.target_id}')">
                 <div class="flex items-center gap-4">
                     <div class="relative">
                         <img src="${avatar}" class="w-10 h-10 rounded-full object-cover">
@@ -426,7 +439,7 @@ function renderSubTab(tabId, data) {
 
 function renderProfile(data) {
     const u = data.user;
-    const l = data.lastVoice || { server: '-', channel: '-', left: '-' };
+    const l = data.lastVoice || { server: '-', channel: '-', left: '-', icon: '' };
     const isNoVoice = l.server === '-' || !l.server;
 
     const row = (iconName, label, value) => `
@@ -437,9 +450,13 @@ function renderProfile(data) {
             <span class="break-all text-sm font-medium text-tx">${value}</span>
         </div>`;
 
+    const srvLogo = l.icon 
+        ? `<img src="${l.icon}" class="w-full h-full object-cover rounded-lg">` 
+        : `<div class="w-full h-full flex items-center justify-center bg-line rounded-lg text-tx font-bold">${l.server ? l.server.charAt(0) : '#'}</div>`;
+
     return `
     <div class="grid gap-4 lg:grid-cols-3">
-        <div class="flex flex-col gap-3 rounded-xl border border-line bg-panel p-3">
+        <div class="flex flex-col gap-3 rounded-xl border border-line bg-panel/80 backdrop-blur-sm p-3">
             <div class="aspect-square w-full overflow-hidden rounded-lg border border-line bg-bg">
                 <img src="${u.avatar_url || avatarPlaceholder(u.display)}" class="h-full w-full object-cover" onerror="this.src='${avatarPlaceholder(u.display)}'">
             </div>
@@ -449,16 +466,16 @@ function renderProfile(data) {
             </div>
         </div>
         
-        <div class="flex flex-col rounded-xl border border-line bg-panel px-4 py-2 lg:col-span-2">
+        <div class="flex flex-col rounded-xl border border-line bg-panel/80 backdrop-blur-sm px-4 py-2 lg:col-span-2">
             ${row('user', 'Username', `@${u.username}`)}
             ${row('id', 'Discord ID', `<span class="font-mono text-xs">${u.id}</span>`)}
             ${row('cal', 'Регистрация', formatDate(u.reg))}
             ${row('clock', 'Время в войсе', u.voice || '0ч 0м')}
         </div>
 
-        <div class="rounded-xl border border-line bg-panel p-4 lg:col-span-3 flex items-center gap-4">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-line">
-                ${icon('mic', 'h-5 w-5 text-mut')}
+        <div class="rounded-xl border border-line bg-panel/80 backdrop-blur-sm p-4 lg:col-span-3 flex items-center gap-4">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden border border-line/50 bg-bg">
+                ${srvLogo}
             </div>
             <div class="min-w-0">
                 <h4 class="text-xs font-semibold text-mut uppercase tracking-wider mb-1">Последняя сессия</h4>
@@ -483,7 +500,7 @@ function renderServers(data) {
                 : `<div class="flex h-full w-full items-center justify-center font-bold text-lg text-tx">${s.n.charAt(0).toUpperCase()}</div>`;
 
             return `
-            <div class="flex items-center gap-4 rounded-xl bg-[#1e1f22] p-3.5 hover:bg-[#25262b] transition-colors">
+            <div class="flex items-center gap-4 rounded-xl bg-[#1e1f22]/80 backdrop-blur-sm p-3.5 hover:bg-[#25262b]/90 border border-transparent hover:border-line transition-colors">
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-line overflow-hidden border border-line/50">
                     ${serverIcon}
                 </div>
@@ -501,7 +518,7 @@ function renderNicks(data) {
     if (nicks.length === 0) return renderEmpty('История никнеймов пуста');
     return `<div class="flex flex-col gap-2">
         ${nicks.map(n => `
-        <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]">
+        <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]/80 backdrop-blur-sm border border-transparent hover:border-line/50 transition-colors">
             <div class="flex-1 text-sm font-medium text-tx">${n[0]}</div>
             <div class="flex-1 text-xs text-mut">${n[1]}</div>
             <div class="flex-1 text-right font-mono text-xs text-mut">${formatDate(n[2])}</div>
@@ -515,7 +532,7 @@ function renderMedia(data) {
     return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         ${media.map(m => {
             const isUrl = m.s && m.s.startsWith('http');
-            return `<div class="aspect-square overflow-hidden rounded-xl border border-line bg-panel cursor-pointer hover:border-accent/40 transition-colors" onclick="openModal('${isUrl ? m.s : ''}')">
+            return `<div class="aspect-square overflow-hidden rounded-xl border border-line bg-panel cursor-pointer hover:border-accent/60 transition-colors" onclick="openModal('${isUrl ? m.s : ''}')">
                 <img src="${isUrl ? m.s : avatarPlaceholder('?')}" class="h-full w-full object-cover" loading="lazy" onerror="this.src='${avatarPlaceholder('?')}'">
             </div>`;
         }).join('')}
@@ -529,7 +546,7 @@ function renderFriends(data) {
         ${friends.map(f => {
             const avatar = f.avatar || avatarPlaceholder(f.u);
             return `
-            <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]">
+            <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]/80 backdrop-blur-sm border border-transparent hover:border-line/50 transition-colors">
                 <div class="flex items-center gap-3 flex-1 min-w-0">
                     <img src="${avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" onerror="this.src='${avatarPlaceholder(f.u)}'">
                     <span class="text-sm font-medium text-tx truncate">${f.u}</span>
@@ -555,13 +572,24 @@ function renderEvents(data) {
     });
 
     return `<div class="flex flex-col gap-2">
-        ${sessions.map(s => `
-        <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]">
-            <div class="flex-1 text-sm font-medium text-tx">${s.srv}</div>
-            <div class="flex-1 text-sm text-mut">#${s.ch}</div>
-            <div class="flex-1 text-sm font-mono ${s.dur === 'В сети' ? 'text-success' : 'text-mut'}">${s.dur}</div>
-            <div class="flex-1 text-right text-xs font-mono text-mut">${s.per}</div>
-        </div>`).join('')}
+        ${sessions.map(s => {
+            const srvLogo = s.srv_icon 
+                ? `<img src="${s.srv_icon}" class="w-6 h-6 rounded-md object-cover">` 
+                : `<div class="w-6 h-6 rounded-md bg-line flex items-center justify-center text-[10px] font-bold text-tx">${s.srv.charAt(0)}</div>`;
+
+            return `
+            <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]/80 backdrop-blur-sm border border-transparent hover:border-line/50 transition-colors">
+                <div class="flex items-center gap-3 flex-1">
+                    ${srvLogo}
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium text-tx">${s.srv}</span>
+                        <span class="text-[11px] text-mut"># ${s.ch}</span>
+                    </div>
+                </div>
+                <div class="flex-1 text-sm font-mono ${s.dur === 'В сети' ? 'text-success font-bold' : 'text-mut'}">${s.dur}</div>
+                <div class="flex-1 text-right text-xs font-mono text-mut">${s.per}</div>
+            </div>`;
+        }).join('')}
     </div>`;
 }
 
