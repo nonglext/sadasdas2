@@ -382,23 +382,22 @@ function render() {
 
 function renderFeed() {
     const rawFeed = DATA.global_feed || [];
-    const feed = [];
+    const uniqueFeed = [];
+    const seenUsers = new Set();
     
-    // ФИЛЬТР ДУБЛЕЙ: удаляем подряд идущие одинаковые аватарки
+    // ТЕПЕРЬ В ЛЕНТЕ ТОЛЬКО 1 САМАЯ СВЕЖАЯ АВАТАРКА НА ЧЕЛОВЕКА
     for (const item of rawFeed) {
-        if (feed.length > 0) {
-            const last = feed[feed.length - 1];
-            if (last.user_id === item.user_id && last.url === item.url) {
-                continue;
-            }
+        const userKey = item.user_id || item.user;
+        if (!seenUsers.has(userKey)) {
+            seenUsers.add(userKey);
+            uniqueFeed.push(item);
         }
-        feed.push(item);
     }
     
-    if (!feed.length) return head('Лента', 'Новые аватарки отслеживаемых людей') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из ваших целей их сменит.');
+    if (!uniqueFeed.length) return head('Лента', 'Новые аватарки отслеживаемых людей') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из ваших целей их сменит.');
     
     return head('Лента', 'Новые аватарки отслеживаемых людей') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
-        ${feed.map(f => `
+        ${uniqueFeed.map(f => `
         <div class="tile" data-open="${esc(f.url)}">
             <img class="pic" src="${esc(f.url)}" alt="" loading="lazy" onerror="this.src='${avatarPlaceholder(f.user)}'">
             <div class="cap">
