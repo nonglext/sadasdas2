@@ -206,6 +206,9 @@ const TABS = ['profile', 'servers', 'nicks', 'media', 'friends', 'events'];
 
 /* ---------- UI helpers ---------- */
 let toastT, fastT, fastN = 0;
+const feedMap = new Map();
+let feedHasMore = true, feedLoading = false;
+const mergeFeed = (items) => (items || []).forEach(f => feedMap.set(f.id, f));
 function toast(msg, bad) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.style.color = bad ? 'var(--bad)' : 'var(--tx)';
@@ -235,6 +238,7 @@ document.addEventListener('click', (e) => {
     const dd = document.getElementById('user-dropdown');
     if (e.target.closest('#user-menu-btn')) { dd.classList.toggle('hidden'); return; }
     if (!dd.contains(e.target)) dd.classList.add('hidden');
+    if (e.target.closest('[data-more]')) return loadMoreFeed();
     const o = e.target.closest('[data-open]'); if (o) return openModal(o.dataset.open);
     const rm = e.target.closest('[data-remove]'); if (rm) { e.stopPropagation(); return removeTarget(rm.dataset.remove); }
     const sel = e.target.closest('[data-select]'); if (sel) return selectTarget(sel.dataset.select);
@@ -280,7 +284,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
 });
 
 const getToken = () => localStorage.getItem('token');
-function logout(msg) { localStorage.clear(); CURRENT_TARGET = null; DATA = {}; userTargets = []; checkAuth(); if (msg) toast(msg, true); }
+function logout(msg) { feedMap.clear(); feedHasMore = true; localStorage.clear(); CURRENT_TARGET = null; DATA = {}; userTargets = []; checkAuth(); if (msg) toast(msg, true); }
 async function api(path, opts = {}) {
     const res = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), Authorization: 'Bearer ' + getToken() } });
     if (res.status === 401) { logout('Сессия истекла, войдите снова'); throw new Error('unauthorized'); }
@@ -397,7 +401,7 @@ function render() {
 }
 
 function renderFeed() {
-    const feed = DATA.global_feed || [];
+    const feed = [...feedMap.values()].sort((a, b) => b.id - a.id);
     
     if (!feed.length) return head('Лента', 'Новые аватарки отслеживаемых людей') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из ваших целей их сменит.');
     
@@ -410,8 +414,20 @@ function renderFeed() {
                 <b>${esc(f.user)}</b><span>${formatDate(f.time)}</span>
             </div>
         </div>`).join('')}
-    </div>`;
+    </div>
+    ${feedHasMore ? `<div class="mt-5 flex justify-center"><button class="btn ghost" data-more="feed">${feedLoading ? '...' : 'Показать ещё'}</button></div>` : ''}`;
 }
+
+window.loadMoreFeed = async () => {
+    if (feedLoading || !feedMap.size) return;
+    feedLoading = true; render();
+    try {
+        const last = Math.min(...feedMap.keys());
+        const res = await api(`/api/feed?before=${last}&limit=100`);
+        if (res.ok) { const d = await res.json(); mergeFeed(d.items); feedHasMore = d.has_more; }
+    } catch (e) {}
+    feedLoading = false; render();
+};
 
 function renderTrackingList() {
     const n = userTargets.length;
@@ -573,7 +589,7 @@ async function loadData() {
     if (!USER_ID) return;
     try {
         const res = await api('/api/data');
-        if (res.ok) { DATA = await res.json(); render(); }
+        if (res.ok) { DATA = await res.json(); mergeFeed(DATA.global_feed); render(); }
         // если у какой-то цели ещё нет данных от бота — проверяем чаще, пока не появятся
         clearTimeout(fastT);
         const missing = userTargets.some(t => !DATA.targets?.[t.target_id]?.user || DATA.targets[t.target_id].user.username === 'unknown');
