@@ -135,6 +135,7 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
             <nav class="flex gap-1 overflow-x-auto lg:flex-col">
                 <a href="#feed" class="na" id="nav-feed"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" id="ni-feed"></svg>Лента</a>
                 <a href="#tracking" class="na" id="nav-tracking"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" id="ni-tracking"></svg>Отслеживание</a>
+                <a href="#top" class="na" id="nav-top"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" id="ni-top"></svg>Топ войсов</a>
             </nav>
             <div id="sub-menu-container" class="hidden border-t pt-4" style="border-color:var(--hair)">
                 <div class="mb-3 flex items-center gap-3 px-1">
@@ -164,11 +165,13 @@ const ICONS = {
     tag: '<path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>',
     cal: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>',
     copy: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>',
+    top: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4m-5-18h10v5a5 5 0 01-10 0V3zm0 2H4v1a3 3 0 003 3m10-4h3v1a3 3 0 01-3 3"/>',
     trash: '<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>'
 };
 const icon = (n, c = "h-4 w-4") => `<svg class="${c}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">${ICONS[n] || ''}</svg>`;
 document.getElementById('ni-feed').innerHTML = ICONS.feed;
 document.getElementById('ni-tracking').innerHTML = ICONS.users;
+document.getElementById('ni-top').innerHTML = ICONS.top;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -376,6 +379,7 @@ function render() {
     }
     document.getElementById('nav-feed').className = 'na' + (hash === 'feed' ? ' on' : '');
     document.getElementById('nav-tracking').className = 'na' + (hash === 'tracking' ? ' on' : '');
+    document.getElementById('nav-top').className = 'na' + (hash === 'top' ? ' on' : '');
 
     const sub = document.getElementById('sub-menu-container');
     const tData = DATA.targets?.[CURRENT_TARGET];
@@ -394,6 +398,7 @@ function render() {
     let html;
     if (hash === 'feed') html = renderFeed();
     else if (hash === 'tracking') html = renderTrackingList();
+    else if (hash === 'top') html = renderTop();
     else if (!tData) html = `<div class="flex h-[400px] flex-col items-center justify-center gap-3 t-mut"><svg class="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><p class="text-sm">Ожидание данных от бота...</p></div>`;
     else html = renderSubTab(hash, tData);
     content.innerHTML = html;
@@ -428,6 +433,38 @@ window.loadMoreFeed = async () => {
     } catch (e) {}
     feedLoading = false; render();
 };
+
+let TOP = null, topLoading = false;
+async function loadTop() {
+    if (topLoading || !USER_ID) return;
+    topLoading = true;
+    try {
+        const res = await api('/api/top_voice?limit=100');
+        if (res.ok) { TOP = (await res.json()).items; if (location.hash.slice(1) === 'top') render(); }
+    } catch (e) {}
+    topLoading = false;
+}
+
+function renderTop() {
+    const h = head('Топ войсов', 'Больше всего часов в голосовых каналах · топ 100');
+    if (TOP === null) { loadTop(); return h + renderEmpty('Загрузка...'); }
+    if (!TOP.length) return h + renderEmpty('Пока нет данных', 'Рейтинг появится, когда бот зафиксирует время в войсе.');
+    const max = TOP[0].sec || 1, mine = new Set(userTargets.map(t => t.target_id));
+    return h + `<div class="list">
+        ${TOP.map((x, i) => {
+            const own = mine.has(x.id);
+            return `<div class="row${own ? ' click' : ''}" ${own ? `data-select="${esc(x.id)}"` : ''}>
+                <div class="w-7 shrink-0 text-center font-mono text-sm ${i < 3 ? 'font-semibold' : 't-mut'}">${i + 1}</div>
+                <img src="${esc(x.avatar || avatarPlaceholder(x.name))}" class="ava h-10 w-10" alt="" loading="lazy" data-ph="${esc(x.name)}">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2"><span class="truncate text-sm font-semibold">${esc(x.name)}</span>${x.online ? '<i class="live"></i>' : ''}</div>
+                    <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full" style="background:rgba(255,255,255,.06)"><div class="h-full rounded-full" style="width:${Math.max(2, x.sec / max * 100)}%;background:rgba(255,255,255,.45)"></div></div>
+                </div>
+                <div class="shrink-0 text-right text-sm font-semibold tabular-nums">${esc(fmtSec(x.sec))}</div>
+            </div>`;
+        }).join('')}
+    </div>`;
+}
 
 function renderTrackingList() {
     const n = userTargets.length;
@@ -589,7 +626,7 @@ async function loadData() {
     if (!USER_ID) return;
     try {
         const res = await api('/api/data');
-        if (res.ok) { DATA = await res.json(); mergeFeed(DATA.global_feed); render(); }
+        if (res.ok) { DATA = await res.json(); mergeFeed(DATA.global_feed); render(); if (location.hash.slice(1) === 'top') loadTop(); }
         // если у какой-то цели ещё нет данных от бота — проверяем чаще, пока не появятся
         clearTimeout(fastT);
         const missing = userTargets.some(t => !DATA.targets?.[t.target_id]?.user || DATA.targets[t.target_id].user.username === 'unknown');
@@ -598,7 +635,7 @@ async function loadData() {
     } catch (e) {}
 }
 
-window.addEventListener('hashchange', render);
+window.addEventListener('hashchange', () => { if (location.hash.slice(1) === 'top') loadTop(); render(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) loadData(); });
 checkAuth();
 </script>

@@ -306,6 +306,26 @@ async def get_data(request: Request, uid: int = Depends(current_user)):
     }
 
 
+@app.get("/api/top_voice")
+async def top_voice(request: Request, limit: int = 100, uid: int = Depends(current_user)):
+    """Топ по времени в войсе среди всех целей (включая текущую живую сессию)."""
+    limit = max(1, min(limit, 100))
+    now = time.time()
+    out = []
+    for tid, t in request.app.state.store.get("targets", {}).items():
+        u = t.get("user") or {}
+        sec = float(u.get("voice_sec") or 0)
+        live = next((x for x in t.get("sessions", []) if x.get("dur") == "В сети"), None)
+        if live and live.get("start_ts"):
+            sec += max(0.0, now - float(live["start_ts"]))
+        if sec <= 0:
+            continue
+        out.append({"id": tid, "name": u.get("display") or u.get("username") or tid,
+                    "avatar": u.get("avatar_url") or "", "sec": int(sec), "online": bool(live)})
+    out.sort(key=lambda x: x["sec"], reverse=True)
+    return {"items": out[:limit]}
+
+
 @app.get("/api/feed")
 async def get_feed(request: Request, before: int = 0, limit: int = 100, uid: int = Depends(current_user)):
     """Вся лента без лимита, постранично: before — id последней загруженной записи."""
