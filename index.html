@@ -31,30 +31,31 @@ tailwind.config = {
     .fade-in { animation: fadeIn 0.15s ease-out forwards; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     
-    /* АНИМИРОВАННЫЙ ФОН С БУКВОЙ X */
+    /* СТАТИЧНЫЙ КРАСИВЫЙ ФОН С X */
     .bg-x-pattern {
         position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 150vw;
-        height: 150vh;
+        top: 0; left: 0; width: 100vw; height: 100vh;
         pointer-events: none;
         z-index: 0;
-        opacity: 0.03;
-        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 60H0z' fill='%236366f1' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E");
-        background-size: 100px 100px;
-        animation: slowSpin 60s linear infinite;
+        opacity: 0.025;
+        background-image: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M60 0L120 120H0Z' fill='%236366f1' fill-rule='evenodd'/%3E%3C/svg%3E");
+        background-size: 160px 160px;
+        background-position: center;
     }
-    @keyframes slowSpin {
-        from { transform: translate(-50%, -50%) rotate(0deg); }
-        to { transform: translate(-50%, -50%) rotate(360deg); }
+    .bg-glow {
+        position: fixed;
+        top: -20%; left: 50%; transform: translateX(-50%);
+        width: 100vw; height: 60vh;
+        background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+        pointer-events: none;
+        z-index: 0;
     }
     .content-wrapper { position: relative; z-index: 10; }
 </style>
 </head>
 <body class="h-full bg-bg text-tx font-sans antialiased selection:bg-accent/30 selection:text-white relative">
 <div class="bg-x-pattern"></div>
+<div class="bg-glow"></div>
 
 <!-- Модальное окно для аватарок -->
 <div id="image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" onclick="this.classList.add('hidden'); this.classList.remove('flex');">
@@ -373,7 +374,7 @@ function render() {
 }
 
 function renderFeed() {
-    // АБСОЛЮТНО БЕЗ ФИЛЬТРОВ И ОГРАНИЧЕНИЙ
+    // ТЕПЕРЬ БЕЗ ФИЛЬТРА ДУБЛЕЙ (как просил) - все аватарки сохраняются
     const feed = DATA.global_feed || [];
     if (feed.length === 0) return renderEmpty('Лента пока пуста.');
     return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -450,8 +451,15 @@ function renderProfile(data) {
             <span class="break-all text-sm font-medium text-tx">${value}</span>
         </div>`;
 
-    const srvLogo = l.icon 
-        ? `<img src="${l.icon}" class="w-full h-full object-cover rounded-lg">` 
+    // УМНЫЙ ПОИСК ИКОНКИ СЕРВЕРА
+    let srvIcon = l.icon;
+    if (!srvIcon && data.servers) {
+        const foundSrv = data.servers.find(s => s.n === l.server);
+        if (foundSrv) srvIcon = foundSrv.icon;
+    }
+
+    const srvLogo = srvIcon 
+        ? `<img src="${srvIcon}" class="w-full h-full object-cover rounded-lg">` 
         : `<div class="w-full h-full flex items-center justify-center bg-line rounded-lg text-tx font-bold">${l.server ? l.server.charAt(0) : '#'}</div>`;
 
     return `
@@ -544,6 +552,7 @@ function renderFriends(data) {
     if (friends.length === 0) return renderEmpty('Нет совместных сессий');
     return `<div class="flex flex-col gap-2">
         ${friends.map(f => {
+            // ТЕПЕРЬ ИСПОЛЬЗУЕТСЯ РЕАЛЬНАЯ ССЫЛКА НА АВАТАРКУ
             const avatar = f.avatar || avatarPlaceholder(f.u);
             return `
             <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]/80 backdrop-blur-sm border border-transparent hover:border-line/50 transition-colors">
@@ -573,8 +582,14 @@ function renderEvents(data) {
 
     return `<div class="flex flex-col gap-2">
         ${sessions.map(s => {
-            const srvLogo = s.srv_icon 
-                ? `<img src="${s.srv_icon}" class="w-6 h-6 rounded-md object-cover">` 
+            let srvIcon = s.srv_icon;
+            if (!srvIcon && data.servers) {
+                const foundSrv = data.servers.find(serv => serv.n === s.srv);
+                if (foundSrv) srvIcon = foundSrv.icon;
+            }
+
+            const srvLogo = srvIcon 
+                ? `<img src="${srvIcon}" class="w-6 h-6 rounded-md object-cover">` 
                 : `<div class="w-6 h-6 rounded-md bg-line flex items-center justify-center text-[10px] font-bold text-tx">${s.srv.charAt(0)}</div>`;
 
             return `
