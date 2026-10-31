@@ -10,6 +10,7 @@ import os
 import re
 import secrets
 import time
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -107,6 +108,34 @@ class AuthData(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class FeedItem(BaseModel):
+    user: str = Field(default="", max_length=100)
+    user_id: str = Field(max_length=32)
+    url: str = Field(max_length=500)
+    time: str = Field(default="", max_length=40)
+
+
+class FeedIn(BaseModel):
+    items: list[FeedItem] = Field(max_length=200)
+
+
+def parse_ts(s: str) -> datetime:
+    try:
+        d = datetime.fromisoformat(s)
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except Exception:
+        return datetime.now(timezone.utc)
+
+
+FEED_INSERT = ("INSERT INTO feed (user_id, username, url, ts) VALUES ($1, $2, $3, $4) "
+               "ON CONFLICT DO NOTHING")
+
+
+def feed_row(r) -> dict:
+    return {"id": r["id"], "type": "avatar", "user": r["username"], "user_id": r["user_id"],
+            "url": r["url"], "time": r["ts"].isoformat()}
+
+
 class TargetData(BaseModel):
     target_id: str = Field(max_length=32)
     target_name: str = Field(default="", max_length=100)
@@ -137,11 +166,36 @@ async def lifespan(app: FastAPI):
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 data JSONB
             );
+            CREATE TABLE IF NOT EXISTS feed (
+                id BIGSERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                username TEXT,
+                url TEXT NOT NULL,
+                ts TIMESTAMPTZ NOT NULL,
+                UNIQUE (user_id, url, ts)
+            );
             ALTER TABLE targets DROP CONSTRAINT IF EXISTS targets_target_id_key;
             CREATE UNIQUE INDEX IF NOT EXISTS targets_user_target_uq ON targets (user_id, target_id);
         ''')
         row = await conn.fetchrow("SELECT data FROM bot_state WHERE id=1")
     app.state.store = row["data"] if row and isinstance(row["data"], dict) else dict(EMPTY_STATE)
+    # перенос старой ленты из JSON-состояния в отдельную таблицу (без лимита)
+    old_feed = app.state.store.get("global_feed") or []
+    if old_feed:
+        rows = []
+        for f in reversed(old_feed):  # от старых к новым, чтобы id шли по времени
+            try:
+                rows.append((str(f["user_id"]), str(f.get("user", "")), str(f["url"]), parse_ts(f.get("time", ""))))
+            except Exception:
+                continue
+        app.state.store["global_feed"] = []
+        async with app.state.pool.acquire() as conn:
+            await conn.executemany(FEED_INSERT, rows)
+            await conn.execute(
+                "INSERT INTO bot_state (id, data) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data",
+                app.state.store,
+            )
+        log.info("Лента перенесена в таблицу: %d записей", len(rows))
     log.info("Старт. Целей в сохранённом состоянии: %d", len(app.state.store.get("targets", {})))
     yield
     await app.state.pool.close()
@@ -243,12 +297,26 @@ async def remove_target(target_id: str, request: Request, uid: int = Depends(cur
 async def get_data(request: Request, uid: int = Depends(current_user)):
     async with request.app.state.pool.acquire() as conn:
         rows = await conn.fetch("SELECT target_id FROM targets WHERE user_id=$1", uid)
+        feed = await conn.fetch("SELECT id, user_id, username, url, ts FROM feed ORDER BY id DESC LIMIT 100")
     mine = {r["target_id"] for r in rows}
     store = request.app.state.store
     return {
         "targets": {k: v for k, v in store.get("targets", {}).items() if k in mine},
-        "global_feed": store.get("global_feed", [])[:100],
+        "global_feed": [feed_row(r) for r in feed],
     }
+
+
+@app.get("/api/feed")
+async def get_feed(request: Request, before: int = 0, limit: int = 100, uid: int = Depends(current_user)):
+    """Вся лента без лимита, постранично: before — id последней загруженной записи."""
+    limit = max(1, min(limit, 200))
+    async with request.app.state.pool.acquire() as conn:
+        if before > 0:
+            rows = await conn.fetch(
+                "SELECT id, user_id, username, url, ts FROM feed WHERE id < $1 ORDER BY id DESC LIMIT $2", before, limit)
+        else:
+            rows = await conn.fetch("SELECT id, user_id, username, url, ts FROM feed ORDER BY id DESC LIMIT $1", limit)
+    return {"items": [feed_row(r) for r in rows], "has_more": len(rows) == limit}
 
 
 # ───────────────────────── эндпоинты бота ─────────────────────────
@@ -264,6 +332,15 @@ async def bot_state(request: Request):
     return request.app.state.store
 
 
+@app.post("/api/feed", dependencies=[Depends(bot_only)])
+async def add_feed(data: FeedIn, request: Request):
+    rows = [(i.user_id, i.user, i.url, parse_ts(i.time)) for i in data.items if i.url.startswith("http")]
+    if rows:
+        async with request.app.state.pool.acquire() as conn:
+            await conn.executemany(FEED_INSERT, rows)
+    return {"status": "ok", "received": len(rows)}
+
+
 @app.post("/api/update", dependencies=[Depends(bot_only)])
 async def update_data(request: Request):
     raw = await request.body()
@@ -275,7 +352,7 @@ async def update_data(request: Request):
         raise HTTPException(400, "Некорректный JSON")
     if not isinstance(new_data, dict) or not isinstance(new_data.get("targets"), dict):
         raise HTTPException(400, "Нет поля targets")
-    new_data.setdefault("global_feed", [])
+    new_data["global_feed"] = []  # лента живёт в отдельной таблице
 
     async with state_lock:
         store = request.app.state.store
