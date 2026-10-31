@@ -138,7 +138,7 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
             </nav>
             <div id="sub-menu-container" class="hidden border-t pt-4" style="border-color:var(--hair)">
                 <div class="mb-3 flex items-center gap-3 px-1">
-                    <img id="selected-target-ava" src="" alt="" class="ava h-9 w-9" onerror="this.src='${avatarPlaceholder('?')}'">
+                    <img id="selected-target-ava" src="" alt="" class="ava h-9 w-9" data-ph="?">
                     <div class="min-w-0"><div class="truncate text-sm font-semibold" id="selected-target-name"></div><div class="text-xs t-mut">Профиль цели</div></div>
                 </div>
                 <nav class="flex gap-1 overflow-x-auto lg:flex-col" id="sub-menu"></nav>
@@ -178,6 +178,10 @@ const avatarPlaceholder = (str) => {
     const hue = Math.abs(h) % 360;
     return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="hsl(${hue},28%,14%)"/><text x="32" y="44" font-size="30" font-family="sans-serif" font-weight="600" text-anchor="middle" fill="hsl(${hue},65%,72%)">${esc(s.charAt(0).toUpperCase())}</text></svg>`)}`;
 };
+document.addEventListener('error', (e) => {
+    const el = e.target;
+    if (el && el.tagName === 'IMG' && !el.dataset.fb) { el.dataset.fb = '1'; el.src = avatarPlaceholder(el.dataset.ph || '?'); }
+}, true);
 const formatDate = (iso) => {
     if (!iso || iso === 'unknown') return 'Неизвестно';
     if (/^\d{2}\.\d{2}\.\d{4}/.test(iso)) return iso;
@@ -262,7 +266,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
         });
         const data = await res.json();
         if (res.ok) {
-            localStorage.setItem('user_id', data.user_id);
+            localStorage.setItem('token', data.token);
             localStorage.setItem('username', data.username);
             checkAuth();
         } else toast(data.detail || 'Ошибка', true);
@@ -270,10 +274,17 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     finally { btn.disabled = false; btn.textContent = isRegistering ? 'Создать' : 'Войти'; }
 });
 
-document.getElementById('logout-btn').addEventListener('click', () => { localStorage.clear(); checkAuth(); });
+const getToken = () => localStorage.getItem('token');
+function logout(msg) { localStorage.clear(); CURRENT_TARGET = null; DATA = {}; userTargets = []; checkAuth(); if (msg) toast(msg, true); }
+async function api(path, opts = {}) {
+    const res = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), Authorization: 'Bearer ' + getToken() } });
+    if (res.status === 401) { logout('Сессия истекла, войдите снова'); throw new Error('unauthorized'); }
+    return res;
+}
+document.getElementById('logout-btn').addEventListener('click', () => logout());
 
 function checkAuth() {
-    USER_ID = localStorage.getItem('user_id');
+    USER_ID = getToken();
     clearInterval(pollId);
     if (USER_ID) {
         const name = localStorage.getItem('username') || '?';
@@ -282,7 +293,7 @@ function checkAuth() {
         authScreen.classList.add('hidden');
         appScreen.classList.remove('hidden');
         loadTargets(); loadData();
-        pollId = setInterval(loadData, 10000);
+        pollId = setInterval(() => { if (!document.hidden) loadData(); }, 10000);
     } else {
         authScreen.classList.remove('hidden');
         appScreen.classList.add('hidden');
@@ -293,7 +304,8 @@ function checkAuth() {
 async function loadTargets() {
     if (!USER_ID) return;
     try {
-        const res = await fetch(`/api/my_targets/${USER_ID}`);
+        const res = await api('/api/my_targets');
+        if (!res.ok) return;
         userTargets = await res.json();
         if (TABS.includes(location.hash.slice(1)) && !CURRENT_TARGET && userTargets.length) CURRENT_TARGET = userTargets[0].target_id;
         render();
@@ -309,8 +321,8 @@ document.getElementById('add-target-btn').addEventListener('click', async () => 
         return setTimeout(() => input.classList.remove('err'), 1200);
     }
     try {
-        const res = await fetch(`/api/add_target/${USER_ID}`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
+        const res = await api('/api/add_target', {
+            method: 'POST',
             body: JSON.stringify({ target_id: tid, target_name: tid })
         });
         if (res.ok) {
@@ -326,7 +338,7 @@ document.getElementById('new-target-id').addEventListener('keydown', e => { if (
 window.removeTarget = async (tid) => {
     if (!await askConfirm('Удалить цель из отслеживания?')) return;
     try {
-        await fetch(`/api/remove_target/${USER_ID}/${tid}`, { method: 'DELETE' });
+        await api(`/api/remove_target/${encodeURIComponent(tid)}`, { method: 'DELETE' });
         if (CURRENT_TARGET === tid) CURRENT_TARGET = null;
         await loadTargets();
         window.location.hash = 'tracking';
@@ -386,9 +398,9 @@ function renderFeed() {
     return head('Лента', 'Новые аватарки отслеживаемых людей') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
         ${feed.map(f => `
         <div class="tile" data-open="${esc(f.url)}">
-            <img class="pic" src="${esc(f.url)}" alt="" loading="lazy" onerror="this.src='${avatarPlaceholder(f.user)}'">
+            <img class="pic" src="${esc(f.url)}" alt="" loading="lazy" data-ph="${esc(f.user)}">
             <div class="cap">
-                <img class="ava h-6 w-6" src="${esc(f.url)}" alt="" onerror="this.src='${avatarPlaceholder(f.user)}'">
+                <img class="ava h-6 w-6" src="${esc(f.url)}" alt="" data-ph="${esc(f.user)}">
                 <b>${esc(f.user)}</b><span>${formatDate(f.time)}</span>
             </div>
         </div>`).join('')}
@@ -405,7 +417,7 @@ function renderTrackingList() {
             const name = u.display || t.target_name || t.target_id;
             const on = isOnline(t.target_id);
             return `<div class="row click" data-select="${esc(t.target_id)}">
-                <img src="${esc(u.avatar_url || avatarPlaceholder(name))}" class="ava h-11 w-11" alt="" onerror="this.src='${avatarPlaceholder(name)}'">
+                <img src="${esc(u.avatar_url || avatarPlaceholder(name))}" class="ava h-11 w-11" alt="" data-ph="${esc(name)}">
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-sm font-semibold">${esc(name)}</div>
                     <div class="mt-0.5 font-mono text-[11px] t-mut">${esc(t.target_id)}</div>
@@ -425,7 +437,7 @@ function renderSubTab(tab, data) {
 }
 
 const srvLogo = (src, name, size = 'h-11 w-11', r = 'rounded-lg') => src
-    ? `<img src="${esc(src)}" class="${size} ${r} shrink-0 object-cover" alt="" onerror="this.src='${avatarPlaceholder(name)}'">`
+    ? `<img src="${esc(src)}" class="${size} ${r} shrink-0 object-cover" alt="" data-ph="${esc(name)}">`
     : `<div class="${size} ${r} flex shrink-0 items-center justify-center bg-white/[.06] text-sm font-semibold">${esc((name || '#').charAt(0).toUpperCase())}</div>`;
 
 function renderProfile(data) {
@@ -441,7 +453,7 @@ function renderProfile(data) {
     return `
     <section class="sf flex flex-col items-center gap-5 p-6 text-center sm:flex-row sm:text-left">
         <div class="relative shrink-0">
-            <img src="${esc(u.avatar_url || ph)}" class="h-24 w-24 cursor-zoom-in rounded-xl object-cover" data-open="${esc(u.avatar_url)}" onerror="this.src='${ph}'" alt="">
+            <img src="${esc(u.avatar_url || ph)}" class="h-24 w-24 cursor-zoom-in rounded-xl object-cover" data-open="${esc(u.avatar_url)}" data-ph="${esc(u.display)}" alt="">
             ${on ? '<span class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full" style="background:var(--bg)"><i class="live"></i></span>' : ''}
         </div>
         <div class="min-w-0">
@@ -502,7 +514,7 @@ function renderMedia(data) {
     return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         ${m.map(x => {
             const ok = x.s && x.s.startsWith('http');
-            return `<div class="tile" ${ok ? `data-open="${esc(x.s)}"` : ''}><img class="pic" src="${ok ? esc(x.s) : avatarPlaceholder('?')}" alt="" loading="lazy" onerror="this.src='${avatarPlaceholder('?')}'"></div>`;
+            return `<div class="tile" ${ok ? `data-open="${esc(x.s)}"` : ''}><img class="pic" src="${ok ? esc(x.s) : avatarPlaceholder('?')}" alt="" loading="lazy" data-ph="${esc('?')}"></div>`;
         }).join('')}
     </div>`;
 }
@@ -514,7 +526,7 @@ function renderFriends(data) {
     return `<div class="list">
         ${f.map(x => `
         <div class="row">
-            <img src="${esc(x.avatar || avatarPlaceholder(x.u))}" class="ava h-9 w-9" alt="" onerror="this.src='${avatarPlaceholder(x.u)}'">
+            <img src="${esc(x.avatar || avatarPlaceholder(x.u))}" class="ava h-9 w-9" alt="" data-ph="${esc(x.u)}">
             <div class="min-w-0 flex-1">
                 <div class="flex items-baseline justify-between gap-3"><span class="truncate text-sm font-medium">${esc(x.u)}</span><span class="shrink-0 text-xs t-mut">${formatMinutes(x.min)}</span></div>
                 <div class="bar mt-2"><i style="width:${Math.max(3, x.min / max * 100)}%"></i></div>
@@ -552,10 +564,11 @@ function renderEmpty(msg, hint) {
 
 async function loadData() {
     if (!USER_ID) return;
-    try { DATA = await (await fetch('/api/data')).json(); render(); } catch (e) {}
+    try { const res = await api('/api/data'); if (res.ok) { DATA = await res.json(); render(); } } catch (e) {}
 }
 
 window.addEventListener('hashchange', render);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadData(); });
 checkAuth();
 </script>
 </body>
