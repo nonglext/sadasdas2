@@ -37,16 +37,22 @@ tailwind.config = {
         top: 0; left: 0; width: 100vw; height: 100vh;
         pointer-events: none;
         z-index: 0;
-        opacity: 0.025;
-        background-image: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M60 0L120 120H0Z' fill='%236366f1' fill-rule='evenodd'/%3E%3C/svg%3E");
-        background-size: 160px 160px;
-        background-position: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .bg-x-svg {
+        width: 90vw;
+        height: 90vh;
+        opacity: 0.03;
+        color: #6366f1;
     }
     .bg-glow {
-        position: fixed;
-        top: -20%; left: 50%; transform: translateX(-50%);
-        width: 100vw; height: 60vh;
-        background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+        position: absolute;
+        top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 100vw; height: 100vh;
+        background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1) 0%, transparent 60%);
         pointer-events: none;
         z-index: 0;
     }
@@ -54,8 +60,14 @@ tailwind.config = {
 </style>
 </head>
 <body class="h-full bg-bg text-tx font-sans antialiased selection:bg-accent/30 selection:text-white relative">
-<div class="bg-x-pattern"></div>
-<div class="bg-glow"></div>
+
+<!-- ФОН С БУКВОЙ X -->
+<div class="bg-x-pattern">
+    <div class="bg-glow"></div>
+    <svg class="bg-x-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M 15 15 L 85 85 M 85 15 L 15 85" stroke="currentColor" stroke-width="8" stroke-linecap="round" fill="none" />
+    </svg>
+</div>
 
 <!-- Модальное окно для аватарок -->
 <div id="image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" onclick="this.classList.add('hidden'); this.classList.remove('flex');">
@@ -374,7 +386,6 @@ function render() {
 }
 
 function renderFeed() {
-    // ТЕПЕРЬ БЕЗ ФИЛЬТРА ДУБЛЕЙ (как просил) - все аватарки сохраняются
     const feed = DATA.global_feed || [];
     if (feed.length === 0) return renderEmpty('Лента пока пуста.');
     return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -451,7 +462,6 @@ function renderProfile(data) {
             <span class="break-all text-sm font-medium text-tx">${value}</span>
         </div>`;
 
-    // УМНЫЙ ПОИСК ИКОНКИ СЕРВЕРА
     let srvIcon = l.icon;
     if (!srvIcon && data.servers) {
         const foundSrv = data.servers.find(s => s.n === l.server);
@@ -552,7 +562,6 @@ function renderFriends(data) {
     if (friends.length === 0) return renderEmpty('Нет совместных сессий');
     return `<div class="flex flex-col gap-2">
         ${friends.map(f => {
-            // ТЕПЕРЬ ИСПОЛЬЗУЕТСЯ РЕАЛЬНАЯ ССЫЛКА НА АВАТАРКУ
             const avatar = f.avatar || avatarPlaceholder(f.u);
             return `
             <div class="flex items-center justify-between p-3 rounded-xl bg-[#1e1f22]/80 backdrop-blur-sm border border-transparent hover:border-line/50 transition-colors">
