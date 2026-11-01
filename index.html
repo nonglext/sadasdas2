@@ -449,7 +449,7 @@ function renderTop() {
     const h = head('Топ войсов', 'Больше всего часов в голосовых каналах · топ 100');
     if (TOP === null) { loadTop(); return h + renderEmpty('Загрузка...'); }
     if (!TOP.length) return h + renderEmpty('Пока нет данных', 'Рейтинг появится, когда бот зафиксирует время в войсе.');
-    const max = TOP[0].sec || 1, mine = new Set(userTargets.map(t => t.target_id));
+    const mine = new Set(userTargets.map(t => t.target_id));
     return h + `<div class="list">
         ${TOP.map((x, i) => {
             const own = mine.has(x.id);
@@ -458,7 +458,6 @@ function renderTop() {
                 <img src="${esc(x.avatar || avatarPlaceholder(x.name))}" class="ava h-10 w-10" alt="" loading="lazy" data-ph="${esc(x.name)}">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2"><span class="truncate text-sm font-semibold">${esc(x.name)}</span>${x.online ? '<i class="live"></i>' : ''}</div>
-                    <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full" style="background:rgba(255,255,255,.06)"><div class="h-full rounded-full" style="width:${Math.max(2, x.sec / max * 100)}%;background:rgba(255,255,255,.45)"></div></div>
                 </div>
                 <div class="shrink-0 text-right text-sm font-semibold tabular-nums">${esc(fmtSec(x.sec))}</div>
             </div>`;
@@ -590,7 +589,7 @@ function renderFriends(data) {
     </div>
     <div class="list">
         ${f.map((x, i) => `
-        <div class="row" style="${i === 0 ? 'background:linear-gradient(90deg,rgba(250,204,21,.10),transparent 70%)' : i === 1 ? 'background:linear-gradient(90deg,rgba(203,213,225,.08),transparent 70%)' : i === 2 ? 'background:linear-gradient(90deg,rgba(251,146,60,.08),transparent 70%)' : ''}">
+        <div class="row">
             <div class="w-7 shrink-0 text-center font-mono text-sm ${i < 3 ? 'font-semibold' : 't-mut'}">${i + 1}</div>
             <img src="${esc(x.avatar || avatarPlaceholder(x.u))}" class="ava h-10 w-10" alt="" loading="lazy" data-ph="${esc(x.u)}">
             <div class="min-w-0 flex-1">
