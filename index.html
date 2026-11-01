@@ -580,18 +580,24 @@ function renderMedia(data) {
 }
 
 function renderFriends(data) {
-    const f = data.friends || [];
+    const f = [...(data.friends || [])].sort((a, b) => b.min - a.min);
     if (!f.length) return renderEmpty('Нет совместных сессий');
-    const max = Math.max(...f.map(x => x.min), 1);
-    return `<div class="list">
-        ${f.map(x => `
-        <div class="row">
-            <img src="${esc(x.avatar || avatarPlaceholder(x.u))}" class="ava h-9 w-9" alt="" data-ph="${esc(x.u)}">
+    const max = f[0].min || 1;
+    const total = f.reduce((s, x) => s + x.min, 0);
+    return `<div class="mb-3 flex items-center justify-between px-1 text-xs t-mut">
+        <span>${f.length} ${plural(f.length, 'знакомый', 'знакомых', 'знакомых')} · по времени вместе</span>
+        <span>Всего: ${formatMinutes(total)}</span>
+    </div>
+    <div class="list">
+        ${f.map((x, i) => `
+        <div class="row" style="${i === 0 ? 'background:linear-gradient(90deg,rgba(250,204,21,.10),transparent 70%)' : i === 1 ? 'background:linear-gradient(90deg,rgba(203,213,225,.08),transparent 70%)' : i === 2 ? 'background:linear-gradient(90deg,rgba(251,146,60,.08),transparent 70%)' : ''}">
+            <div class="w-7 shrink-0 text-center font-mono text-sm ${i < 3 ? 'font-semibold' : 't-mut'}">${i + 1}</div>
+            <img src="${esc(x.avatar || avatarPlaceholder(x.u))}" class="ava h-10 w-10" alt="" loading="lazy" data-ph="${esc(x.u)}">
             <div class="min-w-0 flex-1">
-                <div class="flex items-baseline justify-between gap-3"><span class="truncate text-sm font-medium">${esc(x.u)}</span><span class="shrink-0 text-xs t-mut">${formatMinutes(x.min)}</span></div>
-                <div class="bar mt-2"><i style="width:${Math.max(3, x.min / max * 100)}%"></i></div>
+                <div class="truncate text-sm font-semibold">${esc(x.u)}</div>
+                <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full" style="background:rgba(255,255,255,.06)"><div class="h-full rounded-full" style="width:${Math.max(2, x.min / max * 100)}%;background:rgba(255,255,255,.45)"></div></div>
             </div>
-            <div class="hidden w-28 text-right text-xs t-mut sm:block">${esc(x.last)}</div>
+            <div class="shrink-0 text-right text-sm font-semibold tabular-nums">${formatMinutes(x.min)}</div>
         </div>`).join('')}
     </div>`;
 }
