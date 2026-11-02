@@ -121,6 +121,10 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
                     <span id="current-user-display" class="hidden text-sm font-medium sm:block"></span>
                 </button>
                 <div id="user-dropdown" class="sf absolute right-0 z-50 mt-2 hidden w-44 p-1">
+                    <button id="clear-top-btn" class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium t-mut transition hover:bg-white/5 mb-1">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        Очистить топ
+                    </button>
                     <button id="logout-btn" class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium t-bad transition hover:bg-red-400/10">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                         Выйти
@@ -293,7 +297,30 @@ async function api(path, opts = {}) {
     if (res.status === 401) { logout('Сессия истекла, войдите снова'); throw new Error('unauthorized'); }
     return res;
 }
+
 document.getElementById('logout-btn').addEventListener('click', () => logout());
+
+document.getElementById('clear-top-btn').addEventListener('click', async () => {
+    if (!userTargets.length) return toast('Топ уже пуст');
+    if (!await askConfirm('Убрать ВСЕХ из топа войсов? (Они удалятся из отслеживания)')) return;
+    const btn = document.getElementById('clear-top-btn');
+    btn.disabled = true;
+    try {
+        for (const t of userTargets) {
+            await api(`/api/remove_target/${encodeURIComponent(t.target_id)}`, { method: 'DELETE' });
+        }
+        TOP = null;
+        CURRENT_TARGET = null;
+        await loadTargets();
+        if (location.hash.slice(1) === 'top') render();
+        toast('Топ очищен');
+    } catch (e) {
+        toast('Ошибка при очистке', true);
+    } finally {
+        btn.disabled = false;
+        document.getElementById('user-dropdown').classList.add('hidden');
+    }
+});
 
 function checkAuth() {
     USER_ID = getToken();
@@ -354,7 +381,13 @@ window.removeTarget = async (tid) => {
         await api(`/api/remove_target/${encodeURIComponent(tid)}`, { method: 'DELETE' });
         if (CURRENT_TARGET === tid) CURRENT_TARGET = null;
         await loadTargets();
-        window.location.hash = 'tracking';
+        
+        if (location.hash.slice(1) === 'top') {
+            loadTop();
+            render();
+        } else {
+            window.location.hash = 'tracking';
+        }
     } catch (e) { toast('Не удалось удалить', true); }
 };
 function selectTarget(id) { CURRENT_TARGET = id; FOREIGN.id = null; window.location.hash = 'profile'; }
@@ -515,7 +548,7 @@ async function loadTop() {
 }
 
 function renderTop() {
-    const h = head('Топ войсов', 'Все, кого бот видел в войсе · топ 100');
+    const h = head('Топ войсов', 'Все, кого ты отслеживаешь · топ 100');
     if (TOP === null) { loadTop(); return h + renderEmpty('Загрузка...'); }
     if (!TOP.length) return h + renderEmpty('Пока нет данных', 'Рейтинг появится, когда бот зафиксирует время в войсе.');
     return h + `<div class="list">
@@ -527,6 +560,7 @@ function renderTop() {
                     <div class="flex items-center gap-2"><span class="truncate text-sm font-semibold">${esc(x.name)}</span>${x.online ? '<i class="live"></i>' : ''}</div>
                 </div>
                 <div class="shrink-0 text-right text-sm font-semibold tabular-nums">${esc(fmtSec(x.sec))}</div>
+                <button data-remove="${esc(x.id)}" aria-label="Удалить из топа" class="rounded-md p-2 t-mut transition hover:text-red-400">${icon('trash')}</button>
             </div>`).join('')}
     </div>`;
 }
