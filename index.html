@@ -140,7 +140,7 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
             <div id="sub-menu-container" class="hidden border-t pt-4" style="border-color:var(--hair)">
                 <div class="mb-3 flex items-center gap-3 px-1">
                     <img id="selected-target-ava" src="" alt="" class="ava h-9 w-9" data-ph="?">
-                    <div class="min-w-0"><div class="truncate text-sm font-semibold" id="selected-target-name"></div><div class="text-xs t-mut">Профиль цели</div></div>
+                    <div class="min-w-0"><div class="truncate text-sm font-semibold" id="selected-target-name"></div><div class="text-xs t-mut" id="selected-target-sub">Профиль цели</div></div>
                 </div>
                 <nav class="flex gap-1 overflow-x-auto lg:flex-col" id="sub-menu"></nav>
             </div>
@@ -166,8 +166,7 @@ const ICONS = {
     cal: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>',
     copy: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>',
     top: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4m-5-18h10v5a5 5 0 01-10 0V3zm0 2H4v1a3 3 0 003 3m10-4h3v1a3 3 0 01-3 3"/>',
-    trash: '<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>',
-    back: '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>'
+    trash: '<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>'
 };
 const icon = (n, c = "h-4 w-4") => `<svg class="${c}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">${ICONS[n] || ''}</svg>`;
 document.getElementById('ni-feed').innerHTML = ICONS.feed;
@@ -206,7 +205,7 @@ const fmtSec = (sec) => {
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return (m > 10 && m < 20) ? c : k === 1 ? a : (k > 1 && k < 5) ? b : c; };
 
 let DATA = {}, CURRENT_TARGET = null, USER_ID = null, userTargets = [], isRegistering = false, pollId = null;
-let VIEW_TARGET = null;   // профиль чужого юзера (#user/{id})
+const FOREIGN = { id: null, data: null, loading: false, error: null };
 const TABS = ['profile', 'servers', 'nicks', 'media', 'friends', 'events'];
 
 let toastT, fastT, fastN = 0;
@@ -251,7 +250,6 @@ document.addEventListener('click', (e) => {
     if (cp) navigator.clipboard?.writeText(cp.dataset.copy).then(() => toast('Discord ID скопирован'));
 });
 
-/* ---------- Auth ---------- */
 const authScreen = document.getElementById('auth-screen');
 const appScreen = document.getElementById('app-screen');
 
@@ -289,7 +287,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
 });
 
 const getToken = () => localStorage.getItem('token');
-function logout(msg) { feedMap.clear(); feedHasMore = true; localStorage.clear(); CURRENT_TARGET = null; VIEW_TARGET = null; DATA = {}; userTargets = []; checkAuth(); if (msg) toast(msg, true); }
+function logout(msg) { feedMap.clear(); feedHasMore = true; localStorage.clear(); CURRENT_TARGET = null; FOREIGN.id = null; FOREIGN.data = null; DATA = {}; userTargets = []; checkAuth(); if (msg) toast(msg, true); }
 async function api(path, opts = {}) {
     const res = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), Authorization: 'Bearer ' + getToken() } });
     if (res.status === 401) { logout('Сессия истекла, войдите снова'); throw new Error('unauthorized'); }
@@ -307,14 +305,13 @@ function checkAuth() {
         authScreen.classList.add('hidden');
         appScreen.classList.remove('hidden');
         loadTargets(); loadData();
-        pollId = setInterval(() => { if (!document.hidden) loadData(); }, 10000);
+        pollId = setInterval(() => { if (!document.hidden && !FOREIGN.id) loadData(); }, 10000);
     } else {
         authScreen.classList.remove('hidden');
         appScreen.classList.add('hidden');
     }
 }
 
-/* ---------- Targets ---------- */
 async function loadTargets() {
     if (!USER_ID) return;
     try {
@@ -344,6 +341,7 @@ document.getElementById('add-target-btn').addEventListener('click', async () => 
             await loadTargets();
             fastN = 0; loadData();
             CURRENT_TARGET = tid;
+            FOREIGN.id = null;
             window.location.hash = 'profile';
         } else { const err = await res.json(); toast(err.detail || 'Ошибка', true); }
     } catch (e) { toast('Ошибка сервера', true); }
@@ -359,8 +357,8 @@ window.removeTarget = async (tid) => {
         window.location.hash = 'tracking';
     } catch (e) { toast('Не удалось удалить', true); }
 };
-function selectTarget(id) { CURRENT_TARGET = id; VIEW_TARGET = null; window.location.hash = 'profile'; }
-function openUser(id) { VIEW_TARGET = String(id); window.location.hash = 'user/' + id; }
+function selectTarget(id) { CURRENT_TARGET = id; FOREIGN.id = null; window.location.hash = 'profile'; }
+function openUser(id) { FOREIGN.id = String(id); FOREIGN.data = null; FOREIGN.error = null; window.location.hash = 'u/' + id; }
 
 const SUB_TABS = [
     { id: 'profile', label: 'Профиль', icon: 'profile' },
@@ -370,21 +368,48 @@ const SUB_TABS = [
     { id: 'friends', label: 'Знакомые', icon: 'users' },
     { id: 'events', label: 'События', icon: 'cal' }
 ];
-const isOnline = (tid) => !!DATA.targets?.[tid]?.sessions?.some(s => s.dur === 'В сети');
 const head = (t, s) => `<header class="ph"><h1>${t}</h1>${s ? `<p>${s}</p>` : ''}</header>`;
+const isOnlineData = (data) => !!(data?.sessions || []).some(s => s.dur === 'В сети');
+const isOnline = (tid) => isOnlineData(DATA.targets?.[tid]);
 
 /* ---------- Router ---------- */
-function render() {
+async function render() {
     let hash = location.hash.slice(1) || 'feed';
+    const prevView = document.getElementById('content').dataset.view;
+    let view, html;
 
-    // #user/{id} — чужой профиль (или известный)
-    if (hash.startsWith('user/')) {
-        const uid = hash.slice(5);
-        VIEW_TARGET = uid;
-        renderForeignProfile(uid);
+    // #u/{id} или #u/{id}/{tab} — чужой профиль
+    if (hash.startsWith('u/')) {
+        const parts = hash.split('/');
+        const uid = parts[1];
+        const tab = TABS.includes(parts[2]) ? parts[2] : 'profile';
+        FOREIGN.id = uid;
+        document.getElementById('nav-feed').className = 'na';
+        document.getElementById('nav-tracking').className = 'na';
+        document.getElementById('nav-top').className = 'na';
+
+        if (!FOREIGN.data || FOREIGN.data.user?.id !== uid) {
+            if (!FOREIGN.loading) loadForeign(uid);
+            const sub = document.getElementById('sub-menu-container');
+            sub.classList.add('hidden');
+            if (FOREIGN.error) {
+                html = renderEmpty('Профиль не найден', FOREIGN.error);
+            } else {
+                html = `<div class="sf flex h-[240px] items-center justify-center t-mut text-sm">Загрузка профиля…</div>`;
+            }
+            setContent(html, prevView, 'u/' + uid + '/' + tab);
+            return;
+        }
+
+        const data = FOREIGN.data;
+        showSubmenu('foreign', uid, tab, data);
+        html = (tab === 'profile' ? '' : head(SUB_TABS.find(t => t.id === tab)?.label, esc(data.user?.display || ''))) + renderSubTab(tab, data);
+        view = 'u/' + uid + '/' + tab;
+        setContent(html, prevView, view);
         return;
     }
-    VIEW_TARGET = null;
+
+    FOREIGN.id = null;
 
     if (TABS.includes(hash) && !CURRENT_TARGET) {
         if (userTargets.length) CURRENT_TARGET = userTargets[0].target_id;
@@ -394,59 +419,61 @@ function render() {
     document.getElementById('nav-tracking').className = 'na' + (hash === 'tracking' ? ' on' : '');
     document.getElementById('nav-top').className = 'na' + (hash === 'top' ? ' on' : '');
 
-    const sub = document.getElementById('sub-menu-container');
     const tData = DATA.targets?.[CURRENT_TARGET];
     if (TABS.includes(hash) && CURRENT_TARGET) {
-        sub.classList.remove('hidden');
-        const name = tData?.user?.display || userTargets.find(t => t.target_id === CURRENT_TARGET)?.target_name || CURRENT_TARGET;
-        document.getElementById('selected-target-name').textContent = name;
-        document.getElementById('selected-target-ava').src = tData?.user?.avatar_url || avatarPlaceholder(name);
-        document.getElementById('sub-menu').innerHTML = SUB_TABS.map(t =>
-            `<a href="#${t.id}" class="na${t.id === hash ? ' on' : ''}">${icon(t.icon)}${t.label}</a>`).join('');
-    } else sub.classList.add('hidden');
+        showSubmenu('target', CURRENT_TARGET, hash, tData);
+    } else {
+        document.getElementById('sub-menu-container').classList.add('hidden');
+    }
 
-    document.getElementById('loader').style.display = 'none';
-    const content = document.getElementById('content');
-    const prev = content.dataset.view, view = hash + CURRENT_TARGET;
-    let html;
     if (hash === 'feed') html = renderFeed();
     else if (hash === 'tracking') html = renderTrackingList();
     else if (hash === 'top') html = renderTop();
     else if (!tData) html = `<div class="flex h-[400px] flex-col items-center justify-center gap-3 t-mut"><svg class="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><p class="text-sm">Ожидание данных от бота...</p></div>`;
     else html = renderSubTab(hash, tData);
+    view = hash + CURRENT_TARGET;
+    setContent(html, prevView, view);
+}
+
+function setContent(html, prev, view) {
+    document.getElementById('loader').style.display = 'none';
+    const content = document.getElementById('content');
     content.innerHTML = html;
     if (prev !== view) { content.classList.remove('fade-in'); void content.offsetWidth; content.classList.add('fade-in'); content.dataset.view = view; }
 }
 
-async function renderForeignProfile(uid) {
-    const content = document.getElementById('content');
-    document.getElementById('sub-menu-container').classList.add('hidden');
-    document.getElementById('nav-feed').className = 'na';
-    document.getElementById('nav-tracking').className = 'na';
-    document.getElementById('nav-top').className = 'na';
-    const back = `<button class="btn ghost mb-4" onclick="history.back()">${icon('back')}<span class="ml-1">Назад</span></button>`;
-    if (!content.dataset.user || content.dataset.user !== uid) {
-        content.innerHTML = back + `<div class="flex h-[240px] items-center justify-center t-mut text-sm">Загрузка профиля…</div>`;
-    }
-    try {
-        const res = await api('/api/user/' + encodeURIComponent(uid));
-        if (!res.ok) {
-            content.innerHTML = back + `<div class="sf flex min-h-[240px] flex-col items-center justify-center gap-1.5 px-6 text-center"><p class="text-sm font-medium">Профиль не найден</p><p class="max-w-sm text-sm t-mut">Бот ещё не встречал этого пользователя на общих серверах.</p></div>`;
-            return;
-        }
-        const payload = await res.json();
-        const data = payload.target;
-        content.innerHTML = back + renderProfile(data) + renderServers(data) + renderNicks(data) + renderMedia(data) + renderSessionsBlock(data);
-        content.dataset.user = uid;
-    } catch (e) {
-        content.innerHTML = back + `<div class="sf flex min-h-[240px] items-center justify-center px-6 text-center"><p class="text-sm t-mut">Ошибка загрузки</p></div>`;
-    }
+function showSubmenu(kind, id, tab, data) {
+    const sub = document.getElementById('sub-menu-container');
+    sub.classList.remove('hidden');
+    const name = data?.user?.display || (kind === 'target' ? userTargets.find(t => t.target_id === id)?.target_name : null) || id;
+    document.getElementById('selected-target-name').textContent = name;
+    document.getElementById('selected-target-ava').src = data?.user?.avatar_url || avatarPlaceholder(name);
+    document.getElementById('selected-target-sub').textContent = kind === 'foreign' ? 'Профиль пользователя' : 'Профиль цели';
+    document.getElementById('sub-menu').innerHTML = SUB_TABS.map(t => {
+        const href = kind === 'foreign' ? `#u/${id}/${t.id}` : `#${t.id}`;
+        return `<a href="${href}" class="na${t.id === tab ? ' on' : ''}">${icon(t.icon)}${t.label}</a>`;
+    }).join('');
 }
 
-function renderSessionsBlock(data) {
-    const s = data.sessions || [];
-    if (!s.length) return '';
-    return head('Сессии', 'История голосовых сессий') + renderEvents(data);
+async function loadForeign(uid) {
+    FOREIGN.loading = true;
+    FOREIGN.error = null;
+    try {
+        const res = await api('/api/user/' + encodeURIComponent(uid));
+        if (res.ok) {
+            const payload = await res.json();
+            FOREIGN.data = payload.target;
+        } else if (res.status === 404) {
+            FOREIGN.data = null;
+            FOREIGN.error = 'Бот ещё не встречал этого пользователя на общих серверах.';
+        } else {
+            FOREIGN.error = 'Не удалось загрузить профиль.';
+        }
+    } catch (e) {
+        FOREIGN.error = 'Ошибка загрузки.';
+    }
+    FOREIGN.loading = false;
+    render();
 }
 
 function renderFeed() {
@@ -527,10 +554,8 @@ function renderTrackingList() {
 }
 
 function renderSubTab(tab, data) {
-    const label = SUB_TABS.find(t => t.id === tab)?.label;
-    const sub = esc(data.user?.display || '');
     const fn = { profile: renderProfile, servers: renderServers, nicks: renderNicks, media: renderMedia, friends: renderFriends, events: renderEvents }[tab];
-    return (tab === 'profile' ? '' : head(label, sub)) + (fn ? fn(data) : '');
+    return fn ? fn(data) : '';
 }
 
 const srvLogo = (src, name, size = 'h-11 w-11', r = 'rounded-lg') => src
@@ -541,7 +566,7 @@ function renderProfile(data) {
     const u = data.user;
     const l = data.lastVoice || { server: '-', channel: '-', left: '-' };
     const noVoice = !l.server || l.server === '-';
-    const on = (data.sessions || []).some(s => s.dur === 'В сети');
+    const on = isOnlineData(data);
     let si = l.icon;
     if (!si && data.servers) si = data.servers.find(s => s.n === l.server)?.icon;
     const ph = avatarPlaceholder(u.display);
@@ -578,8 +603,8 @@ function renderProfile(data) {
 
 function renderServers(data) {
     const s = data.servers || [];
-    if (!s.length) return '';
-    return head('Серверы', 'Общие с ботом серверы') + `<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    if (!s.length) return renderEmpty('Нет общих серверов');
+    return `<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         ${s.map(x => `
         <div class="sf flex items-center gap-4 p-4">
             ${srvLogo(x.icon, x.n, 'h-12 w-12')}
@@ -595,8 +620,8 @@ function renderServers(data) {
 
 function renderNicks(data) {
     const n = data.nicks || [];
-    if (!n.length) return '';
-    return head('Никнеймы', 'История имён') + `<div class="list">
+    if (!n.length) return renderEmpty('История никнеймов пуста');
+    return `<div class="list">
         ${n.map((x, i) => `
         <div class="row"><i class="rail${i === 0 ? ' first' : ''}"></i>
             <div class="min-w-0 flex-1 truncate text-sm font-medium">${esc(x[0])}</div>
@@ -608,8 +633,8 @@ function renderNicks(data) {
 
 function renderMedia(data) {
     const m = data.media || [];
-    if (!m.length) return '';
-    return head('Аватарки', 'Все, что бот видел') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+    if (!m.length) return renderEmpty('Нет аватарок');
+    return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         ${m.map(x => {
             const ok = x.s && x.s.startsWith('http');
             return `<div class="tile" ${ok ? `data-open="${esc(x.s)}"` : ''}><img class="pic" src="${ok ? esc(x.s) : avatarPlaceholder('?')}" alt="" loading="lazy" data-ph="${esc('?')}"></div>`;
@@ -619,11 +644,10 @@ function renderMedia(data) {
 
 function renderFriends(data) {
     const f = [...(data.friends || [])].sort((a, b) => b.min - a.min);
-    if (!f.length) return '';
+    if (!f.length) return renderEmpty('Нет совместных сессий');
     const max = f[0].min || 1;
     const total = f.reduce((s, x) => s + x.min, 0);
-    return head('Знакомые', 'Совместные сессии в войсе') + `
-    <div class="mb-3 flex items-center justify-between px-1 text-xs t-mut">
+    return `<div class="mb-3 flex items-center justify-between px-1 text-xs t-mut">
         <span>${f.length} ${plural(f.length, 'знакомый', 'знакомых', 'знакомых')} · по времени вместе</span>
         <span>Всего: ${formatMinutes(total)}</span>
     </div>
@@ -643,7 +667,7 @@ function renderFriends(data) {
 
 function renderEvents(data) {
     let s = data.sessions || [];
-    if (!s.length) return '';
+    if (!s.length) return renderEmpty('История сессий пуста');
     let seen = false;
     s = s.filter(x => { if (x.dur === 'В сети') { if (seen) return false; seen = true; } return true; });
     return `<div class="list">
@@ -668,8 +692,7 @@ function renderEmpty(msg, hint) {
 }
 
 async function loadData() {
-    if (!USER_ID) return;
-    if (VIEW_TARGET) return;   // на чужом профиле поллинг не нужен
+    if (!USER_ID || FOREIGN.id) return;
     try {
         const res = await api('/api/data');
         if (res.ok) { DATA = await res.json(); mergeFeed(DATA.global_feed); render(); if (location.hash.slice(1) === 'top') loadTop(); }
@@ -681,7 +704,7 @@ async function loadData() {
 }
 
 window.addEventListener('hashchange', () => { if (location.hash.slice(1) === 'top') loadTop(); render(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && !VIEW_TARGET) loadData(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !FOREIGN.id) loadData(); });
 checkAuth();
 </script>
 </body>
