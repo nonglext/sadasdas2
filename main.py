@@ -1,6 +1,4 @@
 # language: Python, file: main.py, target: Render Web Service
-# Env: DATABASE_URL, JWT_SECRET (длинная случайная строка), BOT_KEY (общий ключ с local_bot.py)
-# Запуск: uvicorn main:app --host 0.0.0.0 --port $PORT   (один воркер)
 import asyncio
 import hashlib
 import hmac
@@ -30,15 +28,14 @@ BOT_KEY = os.environ["BOT_KEY"]
 BASE_DIR = Path(__file__).parent
 TOKEN_TTL = 30 * 86400
 MAX_TARGETS = 50
-MAX_STATE_BYTES = 5 * 1024 * 1024
+MAX_STATE_BYTES = 8 * 1024 * 1024
 ID_RE = re.compile(r"^\d{17,20}$")
 NAME_RE = re.compile(r"^[\w.\-]{3,32}$")
-EMPTY_STATE = {"targets": {}, "global_feed": []}
+EMPTY_STATE = {"targets": {}, "known_users": {}, "global_feed": []}
 
 state_lock = asyncio.Lock()
 
 
-# ───────────────────────── пароли ─────────────────────────
 def hash_pw(pw: str) -> str:
     salt = secrets.token_bytes(16)
     h = hashlib.scrypt(pw.encode(), salt=salt, n=2**14, r=8, p=1, dklen=32)
@@ -50,7 +47,6 @@ def verify_pw(pw: str, stored: str) -> bool:
         _, salt, h = stored.split("$")
         calc = hashlib.scrypt(pw.encode(), salt=bytes.fromhex(salt), n=2**14, r=8, p=1, dklen=32)
         return hmac.compare_digest(calc.hex(), h)
-    # старые аккаунты (sha256 без соли) — проверяем и перехешируем при входе
     return hmac.compare_digest(hashlib.sha256(pw.encode()).hexdigest(), stored)
 
 
@@ -58,7 +54,6 @@ def is_legacy(stored: str) -> bool:
     return not stored.startswith("scrypt$")
 
 
-# ───────────────────────── rate-limit входа ─────────────────────────
 _fails: dict[str, list[float]] = {}
 
 
@@ -81,7 +76,6 @@ def rl_fail(key: str):
     _fails.setdefault(key, []).append(time.time())
 
 
-# ───────────────────────── авторизация ─────────────────────────
 def make_token(uid: int) -> str:
     return jwt.encode({"uid": uid, "exp": int(time.time()) + TOKEN_TTL}, JWT_SECRET, "HS256")
 
@@ -102,7 +96,6 @@ async def bot_only(request: Request):
         raise HTTPException(403, "Forbidden")
 
 
-# ───────────────────────── модели ─────────────────────────
 class AuthData(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
@@ -141,7 +134,6 @@ class TargetData(BaseModel):
     target_name: str = Field(default="", max_length=100)
 
 
-# ───────────────────────── приложение ─────────────────────────
 async def _init_conn(conn):
     await conn.set_type_codec("jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
@@ -179,11 +171,11 @@ async def lifespan(app: FastAPI):
         ''')
         row = await conn.fetchrow("SELECT data FROM bot_state WHERE id=1")
     app.state.store = row["data"] if row and isinstance(row["data"], dict) else dict(EMPTY_STATE)
-    # перенос старой ленты из JSON-состояния в отдельную таблицу (без лимита)
+    app.state.store.setdefault("known_users", {})
     old_feed = app.state.store.get("global_feed") or []
     if old_feed:
         rows = []
-        for f in reversed(old_feed):  # от старых к новым, чтобы id шли по времени
+        for f in reversed(old_feed):
             try:
                 rows.append((str(f["user_id"]), str(f.get("user", "")), str(f["url"]), parse_ts(f.get("time", ""))))
             except Exception:
@@ -196,7 +188,8 @@ async def lifespan(app: FastAPI):
                 app.state.store,
             )
         log.info("Лента перенесена в таблицу: %d записей", len(rows))
-    log.info("Старт. Целей в сохранённом состоянии: %d", len(app.state.store.get("targets", {})))
+    log.info("Старт. Целей: %d, известных: %d",
+             len(app.state.store.get("targets", {})), len(app.state.store.get("known_users", {})))
     yield
     await app.state.pool.close()
 
@@ -218,7 +211,6 @@ async def index():
     return FileResponse(BASE_DIR / "index.html")
 
 
-# ───────────────────────── аккаунты ─────────────────────────
 @app.post("/api/register")
 async def register(data: AuthData, request: Request):
     username = data.username.strip()
@@ -256,7 +248,6 @@ async def login(data: AuthData, request: Request):
     return {"status": "ok", "user_id": row["id"], "username": row["username"], "token": make_token(row["id"])}
 
 
-# ───────────────────────── цели пользователя ─────────────────────────
 @app.get("/api/my_targets")
 async def get_user_targets(request: Request, uid: int = Depends(current_user)):
     async with request.app.state.pool.acquire() as conn:
@@ -292,7 +283,6 @@ async def remove_target(target_id: str, request: Request, uid: int = Depends(cur
     return {"status": "ok"}
 
 
-# ───────────────────────── данные для сайта ─────────────────────────
 @app.get("/api/data")
 async def get_data(request: Request, uid: int = Depends(current_user)):
     async with request.app.state.pool.acquire() as conn:
@@ -306,13 +296,28 @@ async def get_data(request: Request, uid: int = Depends(current_user)):
     }
 
 
+@app.get("/api/user/{user_id}")
+async def get_user(user_id: str, request: Request, uid: int = Depends(current_user)):
+    """Профиль любого известного пользователя: сначала target (там могут быть friends), иначе known_users."""
+    store = request.app.state.store
+    data = store.get("targets", {}).get(user_id) or store.get("known_users", {}).get(user_id)
+    if not data:
+        raise HTTPException(404, "Пользователь ещё не встречался боту")
+    return {"target": data, "is_known": user_id in store.get("known_users", {})}
+
+
 @app.get("/api/top_voice")
 async def top_voice(request: Request, limit: int = 100, uid: int = Depends(current_user)):
-    """Топ по времени в войсе среди всех целей (включая текущую живую сессию)."""
-    limit = max(1, min(limit, 100))
+    """Топ по времени в войсе среди targets + known_users, включая живую сессию."""
+    limit = max(1, min(limit, 200))
     now = time.time()
+    store = request.app.state.store
+    merged = {}
+    for src in ("known_users", "targets"):
+        for tid, t in (store.get(src) or {}).items():
+            merged[tid] = t  # targets перезаписывает known_users (там полнее данные)
     out = []
-    for tid, t in request.app.state.store.get("targets", {}).items():
+    for tid, t in merged.items():
         u = t.get("user") or {}
         sec = float(u.get("voice_sec") or 0)
         live = next((x for x in t.get("sessions", []) if x.get("dur") == "В сети"), None)
@@ -320,15 +325,17 @@ async def top_voice(request: Request, limit: int = 100, uid: int = Depends(curre
             sec += max(0.0, now - float(live["start_ts"]))
         if sec <= 0:
             continue
-        out.append({"id": tid, "name": u.get("display") or u.get("username") or tid,
-                    "avatar": u.get("avatar_url") or "", "sec": int(sec), "online": bool(live)})
+        out.append({"id": tid,
+                    "name": u.get("display") or u.get("username") or tid,
+                    "avatar": u.get("avatar_url") or "",
+                    "sec": int(sec),
+                    "online": bool(live)})
     out.sort(key=lambda x: x["sec"], reverse=True)
     return {"items": out[:limit]}
 
 
 @app.get("/api/feed")
 async def get_feed(request: Request, before: int = 0, limit: int = 100, uid: int = Depends(current_user)):
-    """Вся лента без лимита, постранично: before — id последней загруженной записи."""
     limit = max(1, min(limit, 200))
     async with request.app.state.pool.acquire() as conn:
         if before > 0:
@@ -339,7 +346,6 @@ async def get_feed(request: Request, before: int = 0, limit: int = 100, uid: int
     return {"items": [feed_row(r) for r in rows], "has_more": len(rows) == limit}
 
 
-# ───────────────────────── эндпоинты бота ─────────────────────────
 @app.get("/api/bot_targets", dependencies=[Depends(bot_only)])
 async def get_all_targets(request: Request):
     async with request.app.state.pool.acquire() as conn:
@@ -372,12 +378,12 @@ async def update_data(request: Request):
         raise HTTPException(400, "Некорректный JSON")
     if not isinstance(new_data, dict) or not isinstance(new_data.get("targets"), dict):
         raise HTTPException(400, "Нет поля targets")
-    new_data["global_feed"] = []  # лента живёт в отдельной таблице
+    new_data.setdefault("known_users", {})
+    new_data["global_feed"] = []
 
     async with state_lock:
         store = request.app.state.store
         async with request.app.state.pool.acquire() as conn:
-            # пустое состояние принимаем, только если целей в БД действительно нет
             if not new_data["targets"] and store.get("targets"):
                 if await conn.fetchval("SELECT count(*) FROM targets") > 0:
                     return {"status": "ignored_empty"}

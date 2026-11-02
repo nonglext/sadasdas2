@@ -88,7 +88,7 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
     <div class="w-full max-w-[380px] relative z-10">
         <svg class="mx-auto h-10 w-10 rv" style="color:var(--tx)"><use href="#xm"/></svg>
         <h2 id="auth-title" class="disp mt-6 text-center text-xl rv d1">Вход в систему</h2>
-                <form id="auth-form" class="mt-7 flex flex-col gap-3 rv d2">
+        <form id="auth-form" class="mt-7 flex flex-col gap-3 rv d2">
             <input type="text" id="auth-user" placeholder="Логин" autocomplete="username" class="field" required>
             <input type="password" id="auth-pass" placeholder="Пароль" autocomplete="current-password" class="field" required>
             <input type="password" id="auth-confirm" placeholder="Повторите пароль" autocomplete="new-password" class="field hidden" required>
@@ -166,7 +166,8 @@ const ICONS = {
     cal: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>',
     copy: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>',
     top: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4m-5-18h10v5a5 5 0 01-10 0V3zm0 2H4v1a3 3 0 003 3m10-4h3v1a3 3 0 01-3 3"/>',
-    trash: '<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>'
+    trash: '<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>',
+    back: '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>'
 };
 const icon = (n, c = "h-4 w-4") => `<svg class="${c}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">${ICONS[n] || ''}</svg>`;
 document.getElementById('ni-feed').innerHTML = ICONS.feed;
@@ -194,8 +195,8 @@ const formatDate = (iso) => {
 };
 const formatMinutes = (m) => {
     const totalMins = Math.round(m);
-    const h = Math.floor(totalMins / 60), r = totalMins % 60; 
-    return h > 0 ? `${h}ч ${r}м` : `${r}м`; 
+    const h = Math.floor(totalMins / 60), r = totalMins % 60;
+    return h > 0 ? `${h}ч ${r}м` : `${r}м`;
 };
 const fmtSec = (sec) => {
     sec = Math.max(0, Math.floor(sec || 0));
@@ -205,9 +206,9 @@ const fmtSec = (sec) => {
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return (m > 10 && m < 20) ? c : k === 1 ? a : (k > 1 && k < 5) ? b : c; };
 
 let DATA = {}, CURRENT_TARGET = null, USER_ID = null, userTargets = [], isRegistering = false, pollId = null;
+let VIEW_TARGET = null;   // профиль чужого юзера (#user/{id})
 const TABS = ['profile', 'servers', 'nicks', 'media', 'friends', 'events'];
 
-/* ---------- UI helpers ---------- */
 let toastT, fastT, fastN = 0;
 const feedMap = new Map();
 let feedHasMore = true, feedLoading = false;
@@ -242,7 +243,8 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('#user-menu-btn')) { dd.classList.toggle('hidden'); return; }
     if (!dd.contains(e.target)) dd.classList.add('hidden');
     if (e.target.closest('[data-more]')) return loadMoreFeed();
-    const o = e.target.closest('[data-open]'); if (o) return openModal(o.dataset.open);
+    const o = e.target.closest('[data-open]'); if (o) { e.stopPropagation(); return openModal(o.dataset.open); }
+    const usr = e.target.closest('[data-user]'); if (usr) return openUser(usr.dataset.user);
     const rm = e.target.closest('[data-remove]'); if (rm) { e.stopPropagation(); return removeTarget(rm.dataset.remove); }
     const sel = e.target.closest('[data-select]'); if (sel) return selectTarget(sel.dataset.select);
     const cp = e.target.closest('[data-copy]');
@@ -287,7 +289,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
 });
 
 const getToken = () => localStorage.getItem('token');
-function logout(msg) { feedMap.clear(); feedHasMore = true; localStorage.clear(); CURRENT_TARGET = null; DATA = {}; userTargets = []; checkAuth(); if (msg) toast(msg, true); }
+function logout(msg) { feedMap.clear(); feedHasMore = true; localStorage.clear(); CURRENT_TARGET = null; VIEW_TARGET = null; DATA = {}; userTargets = []; checkAuth(); if (msg) toast(msg, true); }
 async function api(path, opts = {}) {
     const res = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), Authorization: 'Bearer ' + getToken() } });
     if (res.status === 401) { logout('Сессия истекла, войдите снова'); throw new Error('unauthorized'); }
@@ -357,7 +359,8 @@ window.removeTarget = async (tid) => {
         window.location.hash = 'tracking';
     } catch (e) { toast('Не удалось удалить', true); }
 };
-function selectTarget(id) { CURRENT_TARGET = id; window.location.hash = 'profile'; }
+function selectTarget(id) { CURRENT_TARGET = id; VIEW_TARGET = null; window.location.hash = 'profile'; }
+function openUser(id) { VIEW_TARGET = String(id); window.location.hash = 'user/' + id; }
 
 const SUB_TABS = [
     { id: 'profile', label: 'Профиль', icon: 'profile' },
@@ -373,6 +376,16 @@ const head = (t, s) => `<header class="ph"><h1>${t}</h1>${s ? `<p>${s}</p>` : ''
 /* ---------- Router ---------- */
 function render() {
     let hash = location.hash.slice(1) || 'feed';
+
+    // #user/{id} — чужой профиль (или известный)
+    if (hash.startsWith('user/')) {
+        const uid = hash.slice(5);
+        VIEW_TARGET = uid;
+        renderForeignProfile(uid);
+        return;
+    }
+    VIEW_TARGET = null;
+
     if (TABS.includes(hash) && !CURRENT_TARGET) {
         if (userTargets.length) CURRENT_TARGET = userTargets[0].target_id;
         else { hash = 'tracking'; window.location.hash = 'tracking'; }
@@ -405,14 +418,43 @@ function render() {
     if (prev !== view) { content.classList.remove('fade-in'); void content.offsetWidth; content.classList.add('fade-in'); content.dataset.view = view; }
 }
 
+async function renderForeignProfile(uid) {
+    const content = document.getElementById('content');
+    document.getElementById('sub-menu-container').classList.add('hidden');
+    document.getElementById('nav-feed').className = 'na';
+    document.getElementById('nav-tracking').className = 'na';
+    document.getElementById('nav-top').className = 'na';
+    const back = `<button class="btn ghost mb-4" onclick="history.back()">${icon('back')}<span class="ml-1">Назад</span></button>`;
+    if (!content.dataset.user || content.dataset.user !== uid) {
+        content.innerHTML = back + `<div class="flex h-[240px] items-center justify-center t-mut text-sm">Загрузка профиля…</div>`;
+    }
+    try {
+        const res = await api('/api/user/' + encodeURIComponent(uid));
+        if (!res.ok) {
+            content.innerHTML = back + `<div class="sf flex min-h-[240px] flex-col items-center justify-center gap-1.5 px-6 text-center"><p class="text-sm font-medium">Профиль не найден</p><p class="max-w-sm text-sm t-mut">Бот ещё не встречал этого пользователя на общих серверах.</p></div>`;
+            return;
+        }
+        const payload = await res.json();
+        const data = payload.target;
+        content.innerHTML = back + renderProfile(data) + renderServers(data) + renderNicks(data) + renderMedia(data) + renderSessionsBlock(data);
+        content.dataset.user = uid;
+    } catch (e) {
+        content.innerHTML = back + `<div class="sf flex min-h-[240px] items-center justify-center px-6 text-center"><p class="text-sm t-mut">Ошибка загрузки</p></div>`;
+    }
+}
+
+function renderSessionsBlock(data) {
+    const s = data.sessions || [];
+    if (!s.length) return '';
+    return head('Сессии', 'История голосовых сессий') + renderEvents(data);
+}
+
 function renderFeed() {
     const feed = [...feedMap.values()].sort((a, b) => b.id - a.id);
-    
-    if (!feed.length) return head('Лента', 'Новые аватарки отслеживаемых людей') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из ваших целей их сменит.');
-    
-    return head('Лента', 'Новые аватарки отслеживаемых людей') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+    if (!feed.length) return head('Лента', 'Новые аватарки всех, кого видит бот') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из общих серверов их сменит.');
+    return head('Лента', 'Новые аватарки всех, кого видит бот') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
         ${feed.map(f => `
-        <div class="tile" data-open="${esc(f.url)}">
+        <div class="tile" data-user="${esc(f.user_id)}">
             <img class="pic" src="${esc(f.url)}" alt="" loading="lazy" data-ph="${esc(f.user)}">
             <div class="cap">
                 <img class="ava h-6 w-6" src="${esc(f.url)}" alt="" data-ph="${esc(f.user)}">
@@ -446,22 +488,19 @@ async function loadTop() {
 }
 
 function renderTop() {
-    const h = head('Топ войсов', 'Больше всего часов в голосовых каналах · топ 100');
+    const h = head('Топ войсов', 'Все, кого бот видел в войсе · топ 100');
     if (TOP === null) { loadTop(); return h + renderEmpty('Загрузка...'); }
     if (!TOP.length) return h + renderEmpty('Пока нет данных', 'Рейтинг появится, когда бот зафиксирует время в войсе.');
-    const mine = new Set(userTargets.map(t => t.target_id));
     return h + `<div class="list">
-        ${TOP.map((x, i) => {
-            const own = mine.has(x.id);
-            return `<div class="row${own ? ' click' : ''}" ${own ? `data-select="${esc(x.id)}"` : ''}>
+        ${TOP.map((x, i) => `
+            <div class="row click" data-user="${esc(x.id)}">
                 <div class="w-7 shrink-0 text-center font-mono text-sm ${i < 3 ? 'font-semibold' : 't-mut'}">${i + 1}</div>
                 <img src="${esc(x.avatar || avatarPlaceholder(x.name))}" class="ava h-10 w-10" alt="" loading="lazy" data-ph="${esc(x.name)}">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2"><span class="truncate text-sm font-semibold">${esc(x.name)}</span>${x.online ? '<i class="live"></i>' : ''}</div>
                 </div>
                 <div class="shrink-0 text-right text-sm font-semibold tabular-nums">${esc(fmtSec(x.sec))}</div>
-            </div>`;
-        }).join('')}
+            </div>`).join('')}
     </div>`;
 }
 
@@ -502,7 +541,7 @@ function renderProfile(data) {
     const u = data.user;
     const l = data.lastVoice || { server: '-', channel: '-', left: '-' };
     const noVoice = !l.server || l.server === '-';
-    const on = isOnline(u.id) || isOnline(CURRENT_TARGET);
+    const on = (data.sessions || []).some(s => s.dur === 'В сети');
     let si = l.icon;
     if (!si && data.servers) si = data.servers.find(s => s.n === l.server)?.icon;
     const ph = avatarPlaceholder(u.display);
@@ -539,8 +578,8 @@ function renderProfile(data) {
 
 function renderServers(data) {
     const s = data.servers || [];
-    if (!s.length) return renderEmpty('Нет общих серверов');
-    return `<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    if (!s.length) return '';
+    return head('Серверы', 'Общие с ботом серверы') + `<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         ${s.map(x => `
         <div class="sf flex items-center gap-4 p-4">
             ${srvLogo(x.icon, x.n, 'h-12 w-12')}
@@ -556,8 +595,8 @@ function renderServers(data) {
 
 function renderNicks(data) {
     const n = data.nicks || [];
-    if (!n.length) return renderEmpty('История никнеймов пуста');
-    return `<div class="list">
+    if (!n.length) return '';
+    return head('Никнеймы', 'История имён') + `<div class="list">
         ${n.map((x, i) => `
         <div class="row"><i class="rail${i === 0 ? ' first' : ''}"></i>
             <div class="min-w-0 flex-1 truncate text-sm font-medium">${esc(x[0])}</div>
@@ -569,8 +608,8 @@ function renderNicks(data) {
 
 function renderMedia(data) {
     const m = data.media || [];
-    if (!m.length) return renderEmpty('Нет аватарок');
-    return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+    if (!m.length) return '';
+    return head('Аватарки', 'Все, что бот видел') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         ${m.map(x => {
             const ok = x.s && x.s.startsWith('http');
             return `<div class="tile" ${ok ? `data-open="${esc(x.s)}"` : ''}><img class="pic" src="${ok ? esc(x.s) : avatarPlaceholder('?')}" alt="" loading="lazy" data-ph="${esc('?')}"></div>`;
@@ -580,16 +619,17 @@ function renderMedia(data) {
 
 function renderFriends(data) {
     const f = [...(data.friends || [])].sort((a, b) => b.min - a.min);
-    if (!f.length) return renderEmpty('Нет совместных сессий');
+    if (!f.length) return '';
     const max = f[0].min || 1;
     const total = f.reduce((s, x) => s + x.min, 0);
-    return `<div class="mb-3 flex items-center justify-between px-1 text-xs t-mut">
+    return head('Знакомые', 'Совместные сессии в войсе') + `
+    <div class="mb-3 flex items-center justify-between px-1 text-xs t-mut">
         <span>${f.length} ${plural(f.length, 'знакомый', 'знакомых', 'знакомых')} · по времени вместе</span>
         <span>Всего: ${formatMinutes(total)}</span>
     </div>
     <div class="list">
         ${f.map((x, i) => `
-        <div class="row">
+        <div class="row${x.id ? ' click' : ''}" ${x.id ? `data-user="${esc(x.id)}"` : ''}>
             <div class="w-7 shrink-0 text-center font-mono text-sm ${i < 3 ? 'font-semibold' : 't-mut'}">${i + 1}</div>
             <img src="${esc(x.avatar || avatarPlaceholder(x.u))}" class="ava h-10 w-10" alt="" loading="lazy" data-ph="${esc(x.u)}">
             <div class="min-w-0 flex-1">
@@ -603,7 +643,7 @@ function renderFriends(data) {
 
 function renderEvents(data) {
     let s = data.sessions || [];
-    if (!s.length) return renderEmpty('История сессий пуста');
+    if (!s.length) return '';
     let seen = false;
     s = s.filter(x => { if (x.dur === 'В сети') { if (seen) return false; seen = true; } return true; });
     return `<div class="list">
@@ -629,10 +669,10 @@ function renderEmpty(msg, hint) {
 
 async function loadData() {
     if (!USER_ID) return;
+    if (VIEW_TARGET) return;   // на чужом профиле поллинг не нужен
     try {
         const res = await api('/api/data');
         if (res.ok) { DATA = await res.json(); mergeFeed(DATA.global_feed); render(); if (location.hash.slice(1) === 'top') loadTop(); }
-        // если у какой-то цели ещё нет данных от бота — проверяем чаще, пока не появятся
         clearTimeout(fastT);
         const missing = userTargets.some(t => !DATA.targets?.[t.target_id]?.user || DATA.targets[t.target_id].user.username === 'unknown');
         if (!missing) fastN = 0;
@@ -641,7 +681,7 @@ async function loadData() {
 }
 
 window.addEventListener('hashchange', () => { if (location.hash.slice(1) === 'top') loadTop(); render(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) loadData(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !VIEW_TARGET) loadData(); });
 checkAuth();
 </script>
 </body>
