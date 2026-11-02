@@ -29,6 +29,7 @@ BASE_DIR = Path(__file__).parent
 TOKEN_TTL = 30 * 86400
 MAX_TARGETS = 50
 MAX_STATE_BYTES = 8 * 1024 * 1024
+STALE_SESSION_SEC = 24 * 3600
 ID_RE = re.compile(r"^\d{17,20}$")
 NAME_RE = re.compile(r"^[\w.\-]{3,32}$")
 EMPTY_STATE = {"targets": {}, "known_users": {}, "global_feed": []}
@@ -308,28 +309,28 @@ async def get_user(user_id: str, request: Request, uid: int = Depends(current_us
 
 @app.get("/api/top_voice")
 async def top_voice(request: Request, limit: int = 100, uid: int = Depends(current_user)):
-    """Топ по времени в войсе среди targets + known_users, включая живую сессию."""
+    """Топ по времени в войсе — только цели из отслеживания (targets), без known_users."""
     limit = max(1, min(limit, 200))
     now = time.time()
     store = request.app.state.store
-    merged = {}
-    for src in ("known_users", "targets"):
-        for tid, t in (store.get(src) or {}).items():
-            merged[tid] = t  # targets перезаписывает known_users (там полнее данные)
     out = []
-    for tid, t in merged.items():
+    for tid, t in (store.get("targets") or {}).items():
         u = t.get("user") or {}
         sec = float(u.get("voice_sec") or 0)
         live = next((x for x in t.get("sessions", []) if x.get("dur") == "В сети"), None)
+        is_live = False
         if live and live.get("start_ts"):
-            sec += max(0.0, now - float(live["start_ts"]))
+            delta = max(0.0, now - float(live["start_ts"]))
+            if delta < STALE_SESSION_SEC:
+                sec += delta
+                is_live = True
         if sec <= 0:
             continue
         out.append({"id": tid,
                     "name": u.get("display") or u.get("username") or tid,
                     "avatar": u.get("avatar_url") or "",
                     "sec": int(sec),
-                    "online": bool(live)})
+                    "online": is_live})
     out.sort(key=lambda x: x["sec"], reverse=True)
     return {"items": out[:limit]}
 
