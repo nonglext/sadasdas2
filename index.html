@@ -57,6 +57,19 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,8px);z-index:200;opacity:0;pointer-events:none;padding:10px 14px;border-radius:8px;font-size:14px;background:#1a1a1d;border:1px solid var(--hair2);transition:.2s}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*,::before,::after{animation:none!important;transition:none!important}}
+
+/* Стили для модалки из трекера */
+dialog { max-width: none; max-height: none; padding: 0; border: 0; background: transparent; color: var(--tx); }
+dialog::backdrop { background: rgba(0,0,0,.75); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.modal { width: min(440px, calc(100% - 24px)); max-height: calc(100dvh - 32px); overflow: auto; border-radius: 14px; }
+.modal[open] { animation: pop .25s ease-out; }
+@keyframes pop { from { opacity: 0; transform: translateY(10px); } }
+.dlg { display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%; border: 1px solid var(--hair2); border-radius: inherit; background: var(--bg); }
+.dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--hair); }
+.dlg-head h2 { font-size: 1.1rem; font-weight: 600; }
+.close { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--mut); cursor: pointer; transition: color .18s, background-color .18s; }
+.close:hover { color: var(--tx); background: var(--hair); }
+.dlg-body { flex: 1; min-height: 0; overflow: auto; padding: 18px 20px; }
 </style>
 </head>
 <body class="h-full font-sans antialiased relative">
@@ -83,6 +96,19 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
     </div>
 </div>
 <div id="toast" role="status"></div>
+
+<!-- Модалка управления топом -->
+<dialog id="manageTopDlg" class="modal" aria-labelledby="manTitle">
+  <div class="dlg">
+    <header class="dlg-head">
+      <h2 id="manTitle">Управление топом</h2>
+      <button class="close" type="button" data-close aria-label="Закрыть">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <div class="dlg-body" id="manageTopBody"></div>
+  </div>
+</dialog>
 
 <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto hidden content-wrapper">
     <div class="w-full max-w-[380px] relative z-10">
@@ -121,9 +147,9 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
                     <span id="current-user-display" class="hidden text-sm font-medium sm:block"></span>
                 </button>
                 <div id="user-dropdown" class="sf absolute right-0 z-50 mt-2 hidden w-44 p-1">
-                    <button id="clear-top-btn" class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium t-mut transition hover:bg-white/5 mb-1">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        Очистить топ
+                    <button id="manage-top-btn" class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium t-mut transition hover:bg-white/5 mb-1">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                        Управление топом
                     </button>
                     <button id="logout-btn" class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium t-bad transition hover:bg-red-400/10">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -245,10 +271,22 @@ document.addEventListener('click', (e) => {
     const dd = document.getElementById('user-dropdown');
     if (e.target.closest('#user-menu-btn')) { dd.classList.toggle('hidden'); return; }
     if (!dd.contains(e.target)) dd.classList.add('hidden');
+
     if (e.target.closest('[data-more]')) return loadMoreFeed();
     const o = e.target.closest('[data-open]'); if (o) { e.stopPropagation(); return openModal(o.dataset.open); }
-    const usr = e.target.closest('[data-user]'); if (usr) return openUser(usr.dataset.user);
+
+    // Удаление из модалки управления топом
+    const rmMan = e.target.closest('[data-remove-manage]');
+    if (rmMan) {
+        e.stopPropagation();
+        removeFromManage(rmMan.dataset.removeManage);
+        return;
+    }
+
+    // ВАЖНО: удаление должно проверяться ДО открытия профиля (data-user)
     const rm = e.target.closest('[data-remove]'); if (rm) { e.stopPropagation(); return removeTarget(rm.dataset.remove); }
+    
+    const usr = e.target.closest('[data-user]'); if (usr) return openUser(usr.dataset.user);
     const sel = e.target.closest('[data-select]'); if (sel) return selectTarget(sel.dataset.select);
     const cp = e.target.closest('[data-copy]');
     if (cp) navigator.clipboard?.writeText(cp.dataset.copy).then(() => toast('Discord ID скопирован'));
@@ -300,27 +338,47 @@ async function api(path, opts = {}) {
 
 document.getElementById('logout-btn').addEventListener('click', () => logout());
 
-document.getElementById('clear-top-btn').addEventListener('click', async () => {
-    if (!userTargets.length) return toast('Топ уже пуст');
-    if (!await askConfirm('Убрать ВСЕХ из топа войсов? (Они удалятся из отслеживания)')) return;
-    const btn = document.getElementById('clear-top-btn');
-    btn.disabled = true;
-    try {
-        for (const t of userTargets) {
-            await api(`/api/remove_target/${encodeURIComponent(t.target_id)}`, { method: 'DELETE' });
-        }
-        TOP = null;
-        CURRENT_TARGET = null;
-        await loadTargets();
-        if (location.hash.slice(1) === 'top') render();
-        toast('Топ очищен');
-    } catch (e) {
-        toast('Ошибка при очистке', true);
-    } finally {
-        btn.disabled = false;
-        document.getElementById('user-dropdown').classList.add('hidden');
-    }
+// Модалка управления топом
+document.getElementById('manage-top-btn').addEventListener('click', () => {
+    renderManageTop();
+    document.getElementById('manageTopDlg').showModal();
+    document.getElementById('user-dropdown').classList.add('hidden');
 });
+
+function renderManageTop() {
+    const body = document.getElementById('manageTopBody');
+    if (!userTargets.length) {
+        body.innerHTML = '<p class="text-sm t-mut text-center py-4">В топе пока никого нет.</p>';
+        return;
+    }
+    body.innerHTML = `<div class="list" style="border:0">
+        ${userTargets.map(t => {
+            const u = DATA.targets?.[t.target_id]?.user || {};
+            const name = u.display || t.target_name || t.target_id;
+            return `<div class="row" style="padding:12px 0">
+                <img src="${esc(u.avatar_url || avatarPlaceholder(name))}" class="ava h-9 w-9" alt="" data-ph="${esc(name)}">
+                <div class="min-w-0 flex-1">
+                    <div class="truncate text-sm font-semibold">${esc(name)}</div>
+                    <div class="mt-0.5 font-mono text-[11px] t-mut">${esc(t.target_id)}</div>
+                </div>
+                <button data-remove-manage="${esc(t.target_id)}" aria-label="Удалить" class="rounded-md p-2 t-mut transition hover:text-red-400">${icon('trash')}</button>
+            </div>`;
+        }).join('')}
+    </div>`;
+}
+
+async function removeFromManage(tid) {
+    try {
+        await api(`/api/remove_target/${encodeURIComponent(tid)}`, { method: 'DELETE' });
+        if (CURRENT_TARGET === tid) CURRENT_TARGET = null;
+        await loadTargets();
+        renderManageTop();
+        if (location.hash.slice(1) === 'top') { TOP = null; loadTop(); render(); }
+        toast('Удалено из топа');
+    } catch (e) {
+        toast('Не удалось удалить', true);
+    }
+}
 
 function checkAuth() {
     USER_ID = getToken();
@@ -383,6 +441,7 @@ window.removeTarget = async (tid) => {
         await loadTargets();
         
         if (location.hash.slice(1) === 'top') {
+            TOP = null;
             loadTop();
             render();
         } else {
