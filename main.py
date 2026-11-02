@@ -34,7 +34,6 @@ ID_RE = re.compile(r"^\d{17,20}$")
 UID_RE = re.compile(r"^\d{5,30}$")
 NAME_RE = re.compile(r"^[\w.\-]{3,32}$")
 EMPTY_STATE = {"targets": {}, "global_feed": []}
-STALE_SESSION_SEC = 24 * 3600
 
 state_lock = asyncio.Lock()
 
@@ -115,7 +114,18 @@ def display_target(data):
 def merge_known(old, new):
     if not old:
         return new
+        
+    # Защита от старых записей, сохраненных в виде строк (двойной JSON)
+    if isinstance(old, str):
+        try:
+            old = json.loads(old)
+        except Exception:
+            old = {}
+    if not isinstance(old, dict):
+        old = {}
+
     result = dict(new)
+    
     seen = set()
     merged_media = []
     for m in (new.get("media") or []) + (old.get("media") or []):
@@ -468,10 +478,13 @@ async def track_known(data: TrackIn, request: Request):
     async with request.app.state.pool.acquire() as conn:
         rows = await conn.fetch("SELECT id, data FROM known_users WHERE id = ANY($1::text[])", list(valid.keys()))
     existing = {r["id"]: r["data"] for r in rows}
+    
     to_upsert = []
     for uid, kdata in valid.items():
         merged = merge_known(existing.get(uid), kdata)
-        to_upsert.append((uid, json.dumps(merged, ensure_ascii=False)))
+        # ИСПРАВЛЕНИЕ: передаем dict напрямую, без json.dumps
+        to_upsert.append((uid, merged))
+        
     async with request.app.state.pool.acquire() as conn:
         await conn.executemany(
             "INSERT INTO known_users (id, data, last_seen) VALUES ($1, $2, now()) "
