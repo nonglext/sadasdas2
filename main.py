@@ -28,14 +28,150 @@ BOT_KEY = os.environ["BOT_KEY"]
 BASE_DIR = Path(__file__).parent
 TOKEN_TTL = 30 * 86400
 MAX_TARGETS = 50
-MAX_STATE_BYTES = 8 * 1024 * 1024
+MAX_STATE_BYTES = 5 * 1024 * 1024
 ID_RE = re.compile(r"^\d{17,20}$")
+UID_RE = re.compile(r"^\d{5,30}$")
 NAME_RE = re.compile(r"^[\w.\-]{3,32}$")
-EMPTY_STATE = {"targets": {}, "known_users": {}, "global_feed": []}
+EMPTY_STATE = {"targets": {}, "global_feed": []}
+STALE_SESSION_SEC = 24 * 3600
 
 state_lock = asyncio.Lock()
 
 
+def format_duration(sec):
+    h, m, s = int(sec // 3600), int((sec % 3600) // 60), int(sec % 60)
+    if h > 0:
+        return f"{h}ч {m}м"
+    if m > 0:
+        return f"{m}м {s}с"
+    return f"{s}с"
+
+
+def format_total(sec):
+    sec = int(sec)
+    h, m, s = sec // 3600, (sec % 3600) // 60, sec % 60
+    if h > 0:
+        return f"{h}ч {m}м {s}с"
+    if m > 0:
+        return f"{m}м {s}с"
+    return f"{s}с"
+
+
+def parse_dur(text):
+    total = 0
+    for pat, mul in ((r"(\d+)\s*ч", 3600), (r"(\d+)\s*м", 60), (r"(\d+)\s*с", 1)):
+        m = re.search(pat, text or "")
+        if m:
+            total += int(m.group(1)) * mul
+    return total
+
+
+def compute_closed_sec(sessions):
+    total = 0.0
+    for s in sessions:
+        if s.get("dur") != "В сети":
+            total += parse_dur(s.get("dur", ""))
+    return total
+
+
+def voice_sec_for(t, now_ts):
+    u = t.get("user") or {}
+    stored = float(u.get("voice_sec") or 0)
+    closed = compute_closed_sec(t.get("sessions") or [])
+    base = max(stored, closed)
+    active = next((s for s in (t.get("sessions") or []) if s.get("dur") == "В сети"), None)
+    if active and active.get("start_ts"):
+        delta = max(0.0, now_ts - float(active["start_ts"]))
+        # если active протух (start_ts старый) — считаем как закрытую, не как живую
+        if delta > STALE_SESSION_SEC:
+            return base + 0.0
+        return base + delta
+    return base
+
+
+def is_online(t, now_ts):
+    for s in (t.get("sessions") or []):
+        if s.get("dur") == "В сети" and s.get("start_ts"):
+            if (now_ts - float(s["start_ts"])) < STALE_SESSION_SEC:
+                return True
+    return False
+
+
+def display_target(data):
+    """Закрывает протухшие 'В сети' на чтении, добавляет voice_sec/voice."""
+    if not data:
+        return data
+    now_ts = time.time()
+    result = {**data}
+    sessions = []
+    for s in (data.get("sessions") or []):
+        s2 = dict(s)
+        if s2.get("dur") == "В сети" and s2.get("start_ts"):
+            if (now_ts - float(s2["start_ts"])) > STALE_SESSION_SEC:
+                s2["dur"] = format_duration(now_ts - float(s2["start_ts"]))
+                s2["per"] = ""
+                s2.pop("start_ts", None)
+        sessions.append(s2)
+    result["sessions"] = sessions
+    sec = voice_sec_for(data, now_ts)
+    u = dict(result.get("user") or {})
+    u["voice_sec"] = int(sec)
+    u["voice"] = format_total(sec)
+    result["user"] = u
+    return result
+
+
+def merge_known(old, new):
+    """Мерджит входящий known_user с существующим, сохраняя историю."""
+    if not old:
+        return new
+    result = dict(new)
+    # media
+    seen = set()
+    merged_media = []
+    for m in (new.get("media") or []) + (old.get("media") or []):
+        url = m.get("s") if isinstance(m, dict) else None
+        if url and url not in seen:
+            seen.add(url)
+            merged_media.append(m)
+    result["media"] = merged_media[:100]
+    # nicks
+    seen = set()
+    merged_nicks = []
+    for n in (new.get("nicks") or []) + (old.get("nicks") or []):
+        if isinstance(n, list) and len(n) >= 3:
+            key = (n[0], n[2])
+            if key not in seen:
+                seen.add(key)
+                merged_nicks.append(n)
+    result["nicks"] = merged_nicks[:100]
+    # sessions
+    new_sessions = new.get("sessions") or []
+    old_sessions = old.get("sessions") or []
+    new_open = [s for s in new_sessions if s.get("dur") == "В сети"]
+    closed = [s for s in new_sessions if s.get("dur") != "В сети"]
+    seen = {(s.get("srv"), s.get("ch"), s.get("per")) for s in closed}
+    for s in old_sessions:
+        if s.get("dur") == "В сети":
+            continue
+        key = (s.get("srv"), s.get("ch"), s.get("per"))
+        if key not in seen:
+            closed.append(s)
+            seen.add(key)
+    result["sessions"] = (new_open + closed)[:500]
+    # user info — новое побеждает, но voice_sec — max
+    old_u = old.get("user") or {}
+    new_u = result.get("user") or {}
+    old_vs = float(old_u.get("voice_sec") or 0)
+    new_vs = float(new_u.get("voice_sec") or 0)
+    new_u["voice_sec"] = max(old_vs, new_vs)
+    result["user"] = new_u
+    # last_seen — max
+    result["last_seen"] = max(old.get("last_seen", 0), new.get("last_seen", 0))
+    return result
+
+
+# ───────────────────────── пароли и rate-limit ─────────────────────────
 def hash_pw(pw: str) -> str:
     salt = secrets.token_bytes(16)
     h = hashlib.scrypt(pw.encode(), salt=salt, n=2**14, r=8, p=1, dklen=32)
@@ -112,6 +248,10 @@ class FeedIn(BaseModel):
     items: list[FeedItem] = Field(max_length=200)
 
 
+class TrackIn(BaseModel):
+    items: dict[str, dict] = Field(default_factory=dict)
+
+
 def parse_ts(s: str) -> datetime:
     try:
         d = datetime.fromisoformat(s)
@@ -166,12 +306,18 @@ async def lifespan(app: FastAPI):
                 ts TIMESTAMPTZ NOT NULL,
                 UNIQUE (user_id, url, ts)
             );
+            CREATE TABLE IF NOT EXISTS known_users (
+                id TEXT PRIMARY KEY,
+                data JSONB NOT NULL,
+                last_seen TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS known_users_last_seen ON known_users (last_seen DESC);
             ALTER TABLE targets DROP CONSTRAINT IF EXISTS targets_target_id_key;
             CREATE UNIQUE INDEX IF NOT EXISTS targets_user_target_uq ON targets (user_id, target_id);
         ''')
         row = await conn.fetchrow("SELECT data FROM bot_state WHERE id=1")
     app.state.store = row["data"] if row and isinstance(row["data"], dict) else dict(EMPTY_STATE)
-    app.state.store.setdefault("known_users", {})
+    app.state.store.pop("known_users", None)  # переехало в отдельную таблицу
     old_feed = app.state.store.get("global_feed") or []
     if old_feed:
         rows = []
@@ -188,8 +334,10 @@ async def lifespan(app: FastAPI):
                 app.state.store,
             )
         log.info("Лента перенесена в таблицу: %d записей", len(rows))
+    async with app.state.pool.acquire() as conn:
+        known_count = await conn.fetchval("SELECT count(*) FROM known_users")
     log.info("Старт. Целей: %d, известных: %d",
-             len(app.state.store.get("targets", {})), len(app.state.store.get("known_users", {})))
+             len(app.state.store.get("targets", {})), known_count)
     yield
     await app.state.pool.close()
 
@@ -298,38 +446,44 @@ async def get_data(request: Request, uid: int = Depends(current_user)):
 
 @app.get("/api/user/{user_id}")
 async def get_user(user_id: str, request: Request, uid: int = Depends(current_user)):
-    """Профиль любого известного пользователя: сначала target (там могут быть friends), иначе known_users."""
+    """Профиль любого известного пользователя (target или known_users)."""
+    if not UID_RE.match(user_id):
+        raise HTTPException(400, "Неверный ID")
     store = request.app.state.store
-    data = store.get("targets", {}).get(user_id) or store.get("known_users", {}).get(user_id)
-    if not data:
+    target = store.get("targets", {}).get(user_id)
+    if target:
+        return {"target": display_target(target), "is_known": True, "is_target": True}
+    async with request.app.state.pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT data FROM known_users WHERE id=$1", user_id)
+    if not row:
         raise HTTPException(404, "Пользователь ещё не встречался боту")
-    return {"target": data, "is_known": user_id in store.get("known_users", {})}
+    return {"target": display_target(row["data"]), "is_known": True, "is_target": False}
 
 
 @app.get("/api/top_voice")
 async def top_voice(request: Request, limit: int = 100, uid: int = Depends(current_user)):
-    """Топ по времени в войсе среди targets + known_users, включая живую сессию."""
+    """Топ по войсу: targets + known_users, время считается из сессий."""
     limit = max(1, min(limit, 200))
-    now = time.time()
+    now_ts = time.time()
     store = request.app.state.store
     merged = {}
-    for src in ("known_users", "targets"):
-        for tid, t in (store.get(src) or {}).items():
-            merged[tid] = t  # targets перезаписывает known_users (там полнее данные)
+    async with request.app.state.pool.acquire() as conn:
+        rows = await conn.fetch("SELECT id, data FROM known_users")
+    for r in rows:
+        merged[r["id"]] = r["data"]
+    for tid, t in store.get("targets", {}).items():
+        merged[tid] = t
     out = []
     for tid, t in merged.items():
-        u = t.get("user") or {}
-        sec = float(u.get("voice_sec") or 0)
-        live = next((x for x in t.get("sessions", []) if x.get("dur") == "В сети"), None)
-        if live and live.get("start_ts"):
-            sec += max(0.0, now - float(live["start_ts"]))
+        sec = voice_sec_for(t, now_ts)
         if sec <= 0:
             continue
+        u = t.get("user") or {}
         out.append({"id": tid,
                     "name": u.get("display") or u.get("username") or tid,
                     "avatar": u.get("avatar_url") or "",
                     "sec": int(sec),
-                    "online": bool(live)})
+                    "online": is_online(t, now_ts)})
     out.sort(key=lambda x: x["sec"], reverse=True)
     return {"items": out[:limit]}
 
@@ -367,6 +521,36 @@ async def add_feed(data: FeedIn, request: Request):
     return {"status": "ok", "received": len(rows)}
 
 
+@app.post("/api/track", dependencies=[Depends(bot_only)])
+async def track_known(data: TrackIn, request: Request):
+    """Принимает дельту known_users от бота, мерджит с существующим, upsert."""
+    if not data.items:
+        return {"status": "ok", "count": 0}
+    if len(data.items) > 1000:
+        raise HTTPException(400, "Слишком много записей за раз")
+    valid = {uid: kdata for uid, kdata in data.items.items()
+             if UID_RE.match(uid) and isinstance(kdata, dict)}
+    if not valid:
+        return {"status": "ok", "count": 0}
+    async with request.app.state.pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, data FROM known_users WHERE id = ANY($1::text[])",
+            list(valid.keys())
+        )
+    existing = {r["id"]: r["data"] for r in rows}
+    to_upsert = []
+    for uid, kdata in valid.items():
+        merged = merge_known(existing.get(uid), kdata)
+        to_upsert.append((uid, json.dumps(merged, ensure_ascii=False)))
+    async with request.app.state.pool.acquire() as conn:
+        await conn.executemany(
+            "INSERT INTO known_users (id, data, last_seen) VALUES ($1, $2, now()) "
+            "ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, last_seen = now()",
+            to_upsert
+        )
+    return {"status": "ok", "count": len(to_upsert)}
+
+
 @app.post("/api/update", dependencies=[Depends(bot_only)])
 async def update_data(request: Request):
     raw = await request.body()
@@ -378,7 +562,7 @@ async def update_data(request: Request):
         raise HTTPException(400, "Некорректный JSON")
     if not isinstance(new_data, dict) or not isinstance(new_data.get("targets"), dict):
         raise HTTPException(400, "Нет поля targets")
-    new_data.setdefault("known_users", {})
+    new_data.pop("known_users", None)   # known_users теперь в своей таблице
     new_data["global_feed"] = []
 
     async with state_lock:
