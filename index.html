@@ -43,7 +43,7 @@ body{background:var(--bg);color:var(--tx);font-feature-settings:"tnum"}
 .ph{margin-bottom:20px}.ph h1{font-weight:600;font-size:20px;letter-spacing:-.015em}.ph p{margin-top:4px;font-size:14px;color:var(--mut)}
 .ava{border-radius:999px;object-fit:cover;background:#18181b;flex-shrink:0}
 .live{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--ok);flex-shrink:0}
-.tile{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;cursor:pointer;background:#151517}
+.tile{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;background:#151517}
 .tile>img.pic{width:100%;height:100%;object-fit:cover;transition:opacity .15s}
 .tile:hover>img.pic{opacity:.82}
 .cap{position:absolute;inset:auto 0 0 0;display:flex;align-items:center;gap:8px;padding:24px 10px 9px;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);font-size:12px}
@@ -282,9 +282,11 @@ document.addEventListener('click', (e) => {
     }
 
     if (e.target.closest('[data-more]')) return loadMoreFeed();
+    
+    // 1. Проверяем открытие картинки (data-open)
     const o = e.target.closest('[data-open]'); if (o) { e.stopPropagation(); return openModal(o.dataset.open); }
 
-    // Удаление из модалки управления топом
+    // 2. Удаление из модалки управления топом
     const rmMan = e.target.closest('[data-remove-manage]');
     if (rmMan) {
         e.stopPropagation();
@@ -292,11 +294,16 @@ document.addEventListener('click', (e) => {
         return;
     }
 
-    // ВАЖНО: удаление должно проверяться ДО открытия профиля (data-user)
+    // 3. ВАЖНО: удаление из списков (data-remove) проверяется ДО открытия профиля
     const rm = e.target.closest('[data-remove]'); if (rm) { e.stopPropagation(); return removeTarget(rm.dataset.remove); }
     
+    // 4. Открытие профиля по клику на ник или строку (data-user)
     const usr = e.target.closest('[data-user]'); if (usr) return openUser(usr.dataset.user);
+    
+    // 5. Выбор цели
     const sel = e.target.closest('[data-select]'); if (sel) return selectTarget(sel.dataset.select);
+    
+    // 6. Копирование ID
     const cp = e.target.closest('[data-copy]');
     if (cp) navigator.clipboard?.writeText(cp.dataset.copy).then(() => toast('Discord ID скопирован'));
 });
@@ -580,13 +587,16 @@ async function loadForeign(uid) {
 function renderFeed() {
     const feed = [...feedMap.values()].sort((a, b) => b.id - a.id);
     if (!feed.length) return head('Лента', 'Новые аватарки всех, кого видит бот') + renderEmpty('Лента пока пуста', 'Здесь появятся новые аватарки, как только кто-то из общих серверов их сменит.');
+    
+    // ИЗМЕНЕНИЕ: Картинка теперь имеет data-open (открывает модалку), а нижняя плашка data-user (открывает профиль)
     return head('Лента', 'Новые аватарки всех, кого видит бот') + `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
         ${feed.map(f => `
-        <div class="tile" data-user="${esc(f.user_id)}">
-            <img class="pic" src="${esc(f.url)}" alt="" loading="lazy" data-ph="${esc(f.user)}">
-            <div class="cap">
+        <div class="tile">
+            <img class="pic cursor-zoom-in" src="${esc(f.url)}" alt="" loading="lazy" data-ph="${esc(f.user)}" data-open="${esc(f.url)}">
+            <div class="cap cursor-pointer hover:bg-black/40 transition-colors" data-user="${esc(f.user_id)}" title="Открыть профиль ${esc(f.user)}">
                 <img class="ava h-6 w-6" src="${esc(f.url)}" alt="" data-ph="${esc(f.user)}">
-                <b>${esc(f.user)}</b><span>${formatDate(f.time)}</span>
+                <b class="hover:underline">${esc(f.user)}</b>
+                <span>${formatDate(f.time)}</span>
             </div>
         </div>`).join('')}
     </div>
@@ -739,7 +749,7 @@ function renderMedia(data) {
     return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         ${m.map(x => {
             const ok = x.s && x.s.startsWith('http');
-            return `<div class="tile" ${ok ? `data-open="${esc(x.s)}"` : ''}><img class="pic" src="${ok ? esc(x.s) : avatarPlaceholder('?')}" alt="" loading="lazy" data-ph="${esc('?')}"></div>`;
+            return `<div class="tile" ${ok ? `data-open="${esc(x.s)}"` : ''}><img class="pic cursor-zoom-in" src="${ok ? esc(x.s) : avatarPlaceholder('?')}" alt="" loading="lazy" data-ph="${esc('?')}"></div>`;
         }).join('')}
     </div>`;
 }
